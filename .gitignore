@@ -1,0 +1,45 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyc
+*.pyd
+
+# PyInstaller build artifacts
+build/
+dist/
+*.spec
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Test artifacts
+test_sandbox/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temp
+*.log
+*.tmp
+
+# Large binary / media test files
+*.mp4
+*.mkv
+*.avi
+*.mov
+
+# Sensitive data
+*.pem
+*.key

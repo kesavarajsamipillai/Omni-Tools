@@ -1,0 +1,93 @@
+// Python code to remove the password in the pdf , If the password is Known :
+
+from pypdf import PdfReader, PdfWriter
+
+# Update this path to your actual Aadhaar PDF filename
+input_path = "Your pdf input path"
+output_path = "Your pdf output path"
+
+reader = PdfReader(input_path)
+
+if reader.is_encrypted:
+    reader.decrypt("your_password_here")  # Aadhaar PDF password is usually your name (first 4 letters, capital) + birth year, e.g. "KESA1998"
+
+writer = PdfWriter()
+for page in reader.pages:
+    writer.add_page(page)
+
+with open(output_path, "wb") as f:
+    writer.write(f)
+
+print("Done! Saved as:", output_path)
+
+
+// Image type converter code :
+
+from PIL import Image
+import os
+
+# ============================================
+# STEP 1: Set your input file/folder path
+# ============================================
+INPUT_PATH = r""   # <-- Put the full path of your image (or folder) here
+                    # Example: r"C:\Users\Kesavaraj\Documents\MyImages\photo.jpg"
+
+# ============================================
+# STEP 2: Set your output file/folder path
+# ============================================
+OUTPUT_PATH = r""   # <-- Put the full path where you want the result saved
+                     # Example: r"C:\Users\Kesavaraj\Documents\ConvertedImages\photo.png"
+
+# ============================================
+# STEP 3: Set the format you want to convert TO
+# ============================================
+TARGET_FORMAT = ""   # <-- e.g. "png", "jpg", "webp", "bmp", "gif", "tiff", "ico"
+
+
+# ============================================
+# SINGLE FILE CONVERSION
+# ============================================
+def convert_single_image(input_path, output_path):
+    img = Image.open(input_path)
+
+    # If saving as JPG, remove transparency (JPG doesn't support it)
+    ext = os.path.splitext(output_path)[1].lower()
+    if ext in [".jpg", ".jpeg"] and img.mode in ["RGBA", "P"]:
+        img = img.convert("RGB")
+
+    img.save(output_path)
+    print(f"Converted: {input_path} -> {output_path}")
+
+
+# ============================================
+# BATCH FOLDER CONVERSION (optional — use if INPUT_PATH is a folder)
+# ============================================
+def convert_folder(input_folder, output_folder, target_format):
+    os.makedirs(output_folder, exist_ok=True)
+    target_format = target_format.lower().lstrip(".")
+
+    for filename in os.listdir(input_folder):
+        # <-- Add/remove extensions here if needed
+        if filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".webp")):
+            input_path = os.path.join(input_folder, filename)
+            name_only = os.path.splitext(filename)[0]
+            output_path = os.path.join(output_folder, f"{name_only}.{target_format}")
+
+            try:
+                convert_single_image(input_path, output_path)
+            except Exception as e:
+                print(f"Failed: {filename} -> {e}")
+
+
+# ============================================
+# STEP 4: Choose which mode to run
+# ============================================
+if __name__ == "__main__":
+    MODE = ""   # <-- Type "single" or "folder"
+
+    if MODE == "single":
+        convert_single_image(INPUT_PATH, OUTPUT_PATH)
+    elif MODE == "folder":
+        convert_folder(INPUT_PATH, OUTPUT_PATH, TARGET_FORMAT)
+    else:
+        print("Please set MODE to 'single' or 'folder' above.")

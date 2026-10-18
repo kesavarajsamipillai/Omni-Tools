@@ -1,6 +1,11 @@
 # ⚡ OmniTools — 100% Offline Python Suite
 
-A complete, high-performance, **completely offline** desktop & terminal toolkit for file conversion, security, organization, and audio/image processing.
+[![GitHub Release](https://img.shields.io/badge/release-v1.0.0-blue.svg)](https://github.com/kesavarajsamipillai/Omni-Tools/releases)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-brightgreen.svg)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Author](https://img.shields.io/badge/created%20by-Kesavaraj%20Samipillai-orange.svg)](https://github.com/kesavarajsamipillai)
+
+A complete, high-performance, **completely offline** desktop & terminal toolkit for file conversion, security, organization, and audio/image processing. Pure local execution — zero cloud reliance, 100% privacy.
 
 ---
 

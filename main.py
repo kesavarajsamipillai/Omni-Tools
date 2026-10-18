@@ -15,9 +15,9 @@ def main():
         description="OmniTools Studio Pro — 100% Offline Python Suite",
         add_help=False
     )
-    parser.add_argument("--tui", "-t", action="store_true", help="Launch Terminal User Interface (TUI)")
-    parser.add_argument("--cli", "-c", action="store_true", help="Launch Terminal User Interface")
-    parser.add_argument("--gui", "-g", action="store_true", help="Launch High-Spec Desktop Application GUI")
+    parser.add_argument("--tui", "-tui", "-t", action="store_true", help="Launch Terminal User Interface (TUI)")
+    parser.add_argument("--cli", "-cli", "-c", action="store_true", help="Launch Terminal User Interface")
+    parser.add_argument("--gui", "-gui", "-g", action="store_true", help="Launch High-Spec Desktop Application GUI")
     parser.add_argument("--help", "-h", action="store_true", help="Show help information")
 
     args, unknown = parser.parse_known_args()
@@ -25,7 +25,7 @@ def main():
     if args.help:
         print("""
 ==============================================================
-         ⚡ OmniTools Studio Pro — 100% Offline ⚡
+               OmniTools — 100% Offline Suite
 ==============================================================
 Usage:
   python main.py             # Launches Modern Desktop Application GUI (Default)

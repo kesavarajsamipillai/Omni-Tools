@@ -17,22 +17,27 @@ A complete, high-performance, **completely offline** desktop & terminal toolkit 
 
 ---
 
-## 🚀 How to Run
+## 🚀 Quick Setup & Commands
 
-### 1. Graphical User Interface (Desktop App)
-Double-click `run_gui.bat` or run in terminal:
+Anyone cloning or downloading this repository can install the command once via:
 ```bash
-python main.py
+pip install -e .
+```
+After that, the `omni-tools` command is available everywhere on the system:
+
+### 1. Launch Terminal UI (TUI)
+```bash
+omni-tools -tui
+```
+*(Or double-click `run_cli.bat`)*
+
+### 2. Launch Desktop Application (GUI)
+```bash
+omni-tools
 # or
-python main.py --gui
+omni-tools -gui
 ```
-
-### 2. Interactive Terminal Interface (CLI)
-Double-click `run_cli.bat` or run:
-```bash
-python main.py --cli
-```
-This opens the colorful, interactive terminal menu powered by `rich`.
+*(Or double-click `run_gui.bat`)*
 
 ### 3. Direct Command-Line Execution
 You can also run commands directly in scripts or terminal:

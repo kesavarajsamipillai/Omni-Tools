@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omni-tools"
+version = "1.0.0"
+description = "100% Offline Python Suite & Terminal UI"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Kesavaraj Samipillai", email = "kesavarajsamipillai@gmail.com" }
+]
+keywords = ["offline", "tools", "pdf", "converter", "image", "audio", "tui", "terminal"]
+dependencies = [
+    "customtkinter",
+    "textual>=0.40.0",
+    "rich",
+    "pillow",
+    "pypdf",
+    "pymupdf",
+    "python-docx",
+    "pdf2docx",
+    "docx2pdf",
+    "reportlab",
+    "qrcode"
+]
+
+[project.scripts]
+omni-tools = "main:main"
+omnitools = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "cli"]
+packages = [
+    "modules",
+    "omnitools_ui_starter",
+    "omnitools_ui_starter.omnitools_ui",
+    "omnitools_textual_tui_splash",
+    "omnitools_textual_tui_splash.omnitools_tui"
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.tcss", "*.png", "*.ico"]

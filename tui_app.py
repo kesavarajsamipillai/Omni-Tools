@@ -1,6 +1,6 @@
 """
-OmniTools — Moviebox-TUI Terminal Interface
-A full-screen, keyboard & mouse-driven modern Terminal UI inspired by Moviebox-TUI.
+OmniTools — Terminal User Interface (TUI)
+A full-screen, keyboard & mouse-driven modern Terminal UI.
 Powered by Textual.
 """
 
@@ -134,9 +134,9 @@ RichLog {
 """
 
 
-class MovieboxOmniApp(App):
+class OmniTuiApp(App):
     CSS = TUI_CSS
-    TITLE = "⚡ OmniTools • Moviebox-TUI"
+    TITLE = "⚡ OmniTools • Terminal UI"
     SUB_TITLE = "Offline High-Performance Toolkit"
 
     BINDINGS = [
@@ -171,7 +171,7 @@ class MovieboxOmniApp(App):
     def on_mount(self) -> None:
         log = self.query_one("#console-log", RichLog)
         log.write("[bold cyan]====================================================[/bold cyan]")
-        log.write("[bold green]⚡ Welcome to OmniTools — Moviebox-TUI Edition ⚡[/bold green]")
+        log.write("[bold green]⚡ Welcome to OmniTools — Terminal Edition ⚡[/bold green]")
         log.write("[dim]• 100% Offline • High-Performance • Pure Local Processing[/dim]")
         log.write("[dim]• Use Tab / Shift+Tab to navigate inputs, or click with mouse[/dim]")
         log.write("[bold cyan]====================================================[/bold cyan]\n")
@@ -466,7 +466,7 @@ class MovieboxOmniApp(App):
 
 
 def launch_tui():
-    app = MovieboxOmniApp()
+    app = OmniTuiApp()
     app.run()
 
 

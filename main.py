@@ -2,7 +2,7 @@
 OmniTools Studio Pro — Main Launcher
 Supports:
   1. High-Spec Desktop GUI (default): python main.py
-  2. Moviebox-TUI Terminal UI:         python main.py --tui (or --cli)
+  2. Terminal UI (TUI):                python main.py --tui (or --cli)
   3. Direct Terminal Script Runner:    python cli.py <command>
 """
 
@@ -15,8 +15,8 @@ def main():
         description="OmniTools Studio Pro — 100% Offline Python Suite",
         add_help=False
     )
-    parser.add_argument("--tui", "-t", action="store_true", help="Launch Moviebox-style Terminal User Interface")
-    parser.add_argument("--cli", "-c", action="store_true", help="Launch Moviebox Terminal User Interface")
+    parser.add_argument("--tui", "-t", action="store_true", help="Launch Terminal User Interface (TUI)")
+    parser.add_argument("--cli", "-c", action="store_true", help="Launch Terminal User Interface")
     parser.add_argument("--gui", "-g", action="store_true", help="Launch High-Spec Desktop Application GUI")
     parser.add_argument("--help", "-h", action="store_true", help="Show help information")
 
@@ -29,8 +29,8 @@ def main():
 ==============================================================
 Usage:
   python main.py             # Launches Modern Desktop Application GUI (Default)
-  python main.py --tui       # Launches Moviebox-style Terminal TUI
-  python main.py --cli       # Launches Moviebox-style Terminal TUI
+  python main.py --tui       # Launches Terminal User Interface (TUI)
+  python main.py --cli       # Launches Terminal User Interface
   python cli.py <command>    # Direct Terminal CLI Runner
 
 Direct CLI Commands:

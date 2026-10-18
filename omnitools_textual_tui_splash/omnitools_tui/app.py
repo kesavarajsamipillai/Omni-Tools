@@ -287,8 +287,8 @@ class OmniToolsTUI(App[None]):
     def _log(self, level: str, message: str) -> None:
         if not self.is_mounted:
             return
-        color = {"INFO": "#8B9CFF", "SUCCESS": "#45C99A", "WARNING": "#F0B96B", "ERROR": "#F07878"}.get(level, "#98A6B8")
-        line = Text.assemble((f"[{level}]", f"bold {color}"), (" "), (str(message), "#D5DEEA"))
+        color = {"INFO": "#00E5FF", "SUCCESS": "#00FF9D", "WARNING": "#FBBF24", "ERROR": "#FF3366"}.get(level, "#94A3B8")
+        line = Text.assemble((f"[{level}]", f"bold {color}"), (" "), (str(message), "#F8FAFC"))
         self.query_one("#console", RichLog).write(line)
 
     def action_clear_console(self) -> None:

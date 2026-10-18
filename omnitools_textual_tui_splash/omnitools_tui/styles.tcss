@@ -1,51 +1,55 @@
 Screen {
-    background: #0B0F14;
-    color: #E8EDF4;
+    background: #080C13;
+    color: #E2E8F0;
 }
 
 #header {
     height: 3;
     padding: 0 1;
-    background: #10151D;
-    border-bottom: solid #273342;
+    background: #0D131D;
+    border-bottom: heavy #00E5FF;
 }
 
 #app-title {
     width: 1fr;
-    color: #E8EDF4;
+    color: #00E5FF;
     text-style: bold;
     content-align: left middle;
 }
 
 #mode-label {
     width: 1fr;
-    color: #98A6B8;
+    color: #7DD3FC;
+    text-style: bold;
     content-align: center middle;
 }
 
 #status-pill {
-    width: 16;
+    width: 18;
     height: 1;
     margin: 1 0;
     text-align: center;
     text-style: bold;
-    color: #98A6B8;
-    background: #202C3A;
+    color: #94A3B8;
+    background: #1E293B;
 }
 
 .status-running {
-    color: #0B0F14;
-    background: #8B9CFF;
+    color: #080C13;
+    background: #00E5FF;
+    text-style: bold;
 }
 
 .status-success {
-    color: #0B0F14;
-    background: #45C99A;
+    color: #080C13;
+    background: #00FF9D;
+    text-style: bold;
 }
 
 .status-failed {
     color: #FFFFFF;
-    background: #C9535D;
+    background: #FF3366;
+    text-style: bold;
 }
 
 #main-split {
@@ -56,8 +60,8 @@ Screen {
 #left-panel {
     width: 3fr;
     min-width: 50;
-    border: round #273342;
-    background: #10151D;
+    border: round #1E293B;
+    background: #0D131D;
     padding: 0 1;
     margin-right: 1;
 }
@@ -65,14 +69,14 @@ Screen {
 #right-panel {
     width: 2fr;
     min-width: 30;
-    border: round #273342;
-    background: #10151D;
+    border: round #1E293B;
+    background: #0D131D;
     padding: 0 1;
 }
 
 .panel-heading {
     height: 1;
-    color: #98A6B8;
+    color: #00E5FF;
     text-style: bold;
     margin-top: 1;
     margin-bottom: 1;
@@ -80,19 +84,20 @@ Screen {
 
 #category-tabs {
     height: 3;
-    background: #10151D;
-    border-bottom: solid #273342;
+    background: #0D131D;
+    border-bottom: solid #1E293B;
 }
 
 Tabs > Tab {
-    background: #151C26;
-    color: #98A6B8;
+    background: #111827;
+    color: #94A3B8;
 }
 
 Tabs > Tab.-active {
-    background: #222B4A;
-    color: #A5B1FF;
+    background: #1E293B;
+    color: #00E5FF;
     text-style: bold;
+    border-bottom: tall #00E5FF;
 }
 
 #form-scroll {
@@ -101,7 +106,8 @@ Tabs > Tab.-active {
 }
 
 .field-label {
-    color: #98A6B8;
+    color: #7DD3FC;
+    text-style: bold;
     margin-top: 1;
     margin-bottom: 0;
 }
@@ -111,27 +117,27 @@ Tabs > Tab.-active {
     min-height: 3;
     align: left middle;
     padding: 0 1;
-    border: round #273342;
-    background: #151C26;
+    border: round #1E293B;
+    background: #111827;
     margin-top: 1;
 }
 
 .field-row Static {
     width: 1fr;
-    color: #C4CEDB;
+    color: #E2E8F0;
     content-align: left middle;
 }
 
 Input, Select, TextArea {
-    background: #0B0F14;
-    color: #E8EDF4;
-    border: round #273342;
+    background: #080C13;
+    color: #F8FAFC;
+    border: round #334155;
     margin-top: 0;
     margin-bottom: 1;
 }
 
 Input:focus, Select:focus, TextArea:focus {
-    border: tall #8B9CFF;
+    border: tall #00E5FF;
 }
 
 #input-paths {
@@ -143,32 +149,34 @@ Input:focus, Select:focus, TextArea:focus {
 }
 
 Switch {
-    color: #98A6B8;
+    color: #00E5FF;
     padding: 0 1;
 }
 
 Button {
-    background: #202C3A;
-    color: #E8EDF4;
+    background: #1E293B;
+    color: #F8FAFC;
     border: none;
     text-style: bold;
 }
 
 Button:hover {
-    background: #2A394B;
+    background: #334155;
+    color: #00E5FF;
 }
 
 Button:focus {
-    border: tall #8B9CFF;
+    border: tall #00E5FF;
 }
 
 Button.primary {
-    background: #8B9CFF;
-    color: #0B0F14;
+    background: #00E5FF;
+    color: #080C13;
+    text-style: bold;
 }
 
 Button.primary:hover {
-    background: #A5B1FF;
+    background: #38BDF8;
 }
 
 #run-tool {
@@ -184,38 +192,38 @@ Button.primary:hover {
 
 #console-title {
     width: 1fr;
-    color: #98A6B8;
+    color: #00E5FF;
     text-style: bold;
     content-align: left middle;
 }
 
 #console {
     height: 1fr;
-    border: round #273342;
-    background: #080B10;
+    border: round #1E293B;
+    background: #05080E;
     padding: 0 1;
-    scrollbar-color: #68778A;
-    scrollbar-color-hover: #8B9CFF;
+    scrollbar-color: #334155;
+    scrollbar-color-hover: #00E5FF;
 }
 
 #progress {
     height: 1;
     margin-top: 1;
-    color: #8B9CFF;
-    background: #273342;
+    color: #00E5FF;
+    background: #1E293B;
 }
 
 #progress-note {
     height: 2;
-    color: #68778A;
+    color: #94A3B8;
     padding: 0 1;
 }
 
 #footer {
     height: 1;
     padding: 0 1;
-    background: #10151D;
-    color: #98A6B8;
-    border-top: solid #273342;
+    background: #0D131D;
+    color: #64748B;
+    border-top: solid #1E293B;
     content-align: left middle;
 }

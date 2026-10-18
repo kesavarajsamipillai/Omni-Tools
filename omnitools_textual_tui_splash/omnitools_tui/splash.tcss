@@ -1,21 +1,21 @@
 StartupSplash {
     align: center middle;
-    background: #0B0F14 94%;
+    background: #080C13;
 }
 
 #splash-card {
     width: 68;
     height: 24;
     align: center middle;
-    border: round #35445A;
-    background: #10151D;
+    border: double #00E5FF;
+    background: #0D131D;
     padding: 1 2;
 }
 
 #splash-logo {
     height: 7;
     width: 1fr;
-    color: #8B9CFF;
+    color: #00E5FF;
     text-style: bold;
     content-align: center middle;
 }

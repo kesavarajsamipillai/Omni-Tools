@@ -5,13 +5,13 @@ from pathlib import Path
 
 from textual.binding import Binding
 from textual.containers import Vertical
-from textual.screen import ModalScreen
+from textual.screen import Screen
 from textual.app import ComposeResult
 from textual.widgets import Static
 
 
-class StartupSplash(ModalScreen[None]):
-    """Centered brand screen, dismissed automatically or with a key."""
+class StartupSplash(Screen[None]):
+    """Dedicated solid startup screen, dismissed automatically or with a key."""
 
     CSS_PATH = Path(__file__).with_name("splash.tcss")
     BINDINGS = [
@@ -47,8 +47,9 @@ class StartupSplash(ModalScreen[None]):
         self.app.pop_screen()
 
     def on_mount(self) -> None:
-        self.set_timer(2.4, self._close_splash)
+        self.set_timer(1.8, self._close_splash)
 
     def action_skip(self) -> None:
         self.app.pop_screen()
+
 

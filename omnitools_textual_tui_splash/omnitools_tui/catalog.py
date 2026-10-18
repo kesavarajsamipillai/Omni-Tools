@@ -44,6 +44,10 @@ class ToolRequest:
     options: Mapping[str, Any]
     output_dir: Path | None = None
 
+    @property
+    def files(self) -> tuple[Path, ...]:
+        return self.paths
+
 
 def _field(key: str, label: str, kind: FieldKind = "entry", default: Any = "", choices: tuple[str, ...] = (), placeholder: str = "") -> FieldSpec:
     return FieldSpec(key, label, kind, default, choices, placeholder)

@@ -10,13 +10,6 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Protocol
 
-import modules.pdf_tools as pdf_tools
-import modules.doc_tools as doc_tools
-import modules.image_tools as image_tools
-import modules.audio_tools as audio_tools
-import modules.folder_sorter as folder_sorter
-import modules.extra_tools as extra_tools
-
 
 class ProgressReporter(Protocol):
     def report(self, percent: float, message: str = "") -> None: ...
@@ -38,6 +31,7 @@ def _get_out_dir(req, default_dir: Path | None = None) -> Path:
 # =========================================================================
 
 def handle_pdf_unlock(req, reporter: ProgressReporter) -> str:
+    import modules.pdf_tools as pdf_tools
     pwd = str(req.options.get("password", "") or "")
     out_dir = _get_out_dir(req)
     total = len(req.files)
@@ -56,6 +50,7 @@ def handle_pdf_unlock(req, reporter: ProgressReporter) -> str:
 
 
 def handle_pdf_protect(req, reporter: ProgressReporter) -> str:
+    import modules.pdf_tools as pdf_tools
     pwd = str(req.options.get("password", "") or "")
     if not pwd:
         raise ValueError("Password cannot be empty.")
@@ -76,6 +71,7 @@ def handle_pdf_protect(req, reporter: ProgressReporter) -> str:
 
 
 def handle_pdf_merge(req, reporter: ProgressReporter) -> str:
+    import modules.pdf_tools as pdf_tools
     if len(req.files) < 2:
         raise ValueError("Please select at least 2 PDF files to merge.")
     out_name = str(req.options.get("output_name") or "merged.pdf").strip()
@@ -96,6 +92,7 @@ def handle_pdf_merge(req, reporter: ProgressReporter) -> str:
 
 
 def handle_pdf_split(req, reporter: ProgressReporter) -> str:
+    import modules.pdf_tools as pdf_tools
     pages_spec = str(req.options.get("pages") or "").strip()
     out_dir = _get_out_dir(req)
     total = len(req.files)
@@ -113,6 +110,7 @@ def handle_pdf_split(req, reporter: ProgressReporter) -> str:
 
 
 def handle_pdf_to_images(req, reporter: ProgressReporter) -> str:
+    import modules.pdf_tools as pdf_tools
     fmt = str(req.options.get("format") or "PNG").lower()
     dpi = int(req.options.get("dpi") or 150)
     out_dir = _get_out_dir(req)
@@ -131,6 +129,7 @@ def handle_pdf_to_images(req, reporter: ProgressReporter) -> str:
 
 
 def handle_pdf_images_to_pdf(req, reporter: ProgressReporter) -> str:
+    import modules.pdf_tools as pdf_tools
     if not req.files:
         raise ValueError("Please select one or more image files.")
     out_dir = _get_out_dir(req)
@@ -151,6 +150,7 @@ def handle_pdf_images_to_pdf(req, reporter: ProgressReporter) -> str:
 # =========================================================================
 
 def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
+    import modules.doc_tools as doc_tools
     out_dir = _get_out_dir(req)
     total = len(req.files)
     count = 0
@@ -168,6 +168,7 @@ def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
 
 
 def handle_doc_docx_to_pdf(req, reporter: ProgressReporter) -> str:
+    import modules.doc_tools as doc_tools
     out_dir = _get_out_dir(req)
     total = len(req.files)
     count = 0
@@ -185,6 +186,7 @@ def handle_doc_docx_to_pdf(req, reporter: ProgressReporter) -> str:
 
 
 def handle_doc_txt_to_pdf(req, reporter: ProgressReporter) -> str:
+    import modules.doc_tools as doc_tools
     font_size = int(req.options.get("font_size") or 11)
     out_dir = _get_out_dir(req)
     count = 0
@@ -206,6 +208,7 @@ def handle_doc_txt_to_pdf(req, reporter: ProgressReporter) -> str:
 # =========================================================================
 
 def handle_image_convert(req, reporter: ProgressReporter) -> str:
+    import modules.image_tools as image_tools
     target_fmt = str(req.options.get("format") or "WEBP").lower()
     ext_out = "jpg" if target_fmt in ("jpg", "jpeg") else target_fmt
     out_dir = _get_out_dir(req)
@@ -224,6 +227,7 @@ def handle_image_convert(req, reporter: ProgressReporter) -> str:
 
 
 def handle_image_batch_convert(req, reporter: ProgressReporter) -> str:
+    import modules.image_tools as image_tools
     target_fmt = str(req.options.get("format") or "WEBP").lower()
     out_dir = _get_out_dir(req)
     total_converted = 0
@@ -247,6 +251,7 @@ def handle_image_batch_convert(req, reporter: ProgressReporter) -> str:
 
 
 def handle_image_resize(req, reporter: ProgressReporter) -> str:
+    import modules.image_tools as image_tools
     w = int(req.options.get("width") or 1200)
     h = int(req.options.get("height") or 800)
     keep_aspect = bool(req.options.get("keep_aspect", True))
@@ -266,6 +271,7 @@ def handle_image_resize(req, reporter: ProgressReporter) -> str:
 
 
 def handle_image_compress(req, reporter: ProgressReporter) -> str:
+    import modules.image_tools as image_tools
     quality = int(req.options.get("quality") or 82)
     fmt_choice = str(req.options.get("format") or "Keep original")
     out_dir = _get_out_dir(req)
@@ -289,6 +295,7 @@ def handle_image_compress(req, reporter: ProgressReporter) -> str:
 
 
 def handle_image_transparency(req, reporter: ProgressReporter) -> str:
+    import modules.image_tools as image_tools
     hex_color = str(req.options.get("background") or "#FFFFFF").lstrip("#")
     if len(hex_color) == 6:
         r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
@@ -314,6 +321,7 @@ def handle_image_transparency(req, reporter: ProgressReporter) -> str:
 # =========================================================================
 
 def handle_media_convert(req, reporter: ProgressReporter) -> str:
+    import modules.audio_tools as audio_tools
     target_fmt = str(req.options.get("format") or "MP3").lower()
     bitrate_raw = str(req.options.get("bitrate") or "192 kbps")
     bitrate = bitrate_raw.split()[0] + "k"
@@ -339,6 +347,7 @@ def handle_media_convert(req, reporter: ProgressReporter) -> str:
 
 
 def handle_media_extract_audio(req, reporter: ProgressReporter) -> str:
+    import modules.audio_tools as audio_tools
     out_dir = _get_out_dir(req)
     count = 0
 
@@ -355,6 +364,7 @@ def handle_media_extract_audio(req, reporter: ProgressReporter) -> str:
 
 
 def handle_media_trim(req, reporter: ProgressReporter) -> str:
+    import modules.audio_tools as audio_tools
     start_t = str(req.options.get("start") or "00:00:00").strip()
     end_t = str(req.options.get("end") or "00:00:30").strip()
     out_dir = _get_out_dir(req)
@@ -377,6 +387,7 @@ def handle_media_trim(req, reporter: ProgressReporter) -> str:
 # =========================================================================
 
 def handle_sorter_organize(req, reporter: ProgressReporter) -> str:
+    import modules.folder_sorter as folder_sorter
     dry_run = bool(req.options.get("dry_run", True))
     out_dir = _get_out_dir(req)
     target_folder = req.files[0] if (req.files and req.files[0].is_dir()) else out_dir
@@ -402,6 +413,7 @@ def handle_sorter_organize(req, reporter: ProgressReporter) -> str:
 # =========================================================================
 
 def handle_utilities_hash(req, reporter: ProgressReporter) -> str:
+    import modules.extra_tools as extra_tools
     algo = str(req.options.get("algorithm") or "SHA-256").lower().replace("-", "")
     lines = []
 
@@ -417,6 +429,7 @@ def handle_utilities_hash(req, reporter: ProgressReporter) -> str:
 
 
 def handle_utilities_duplicates(req, reporter: ProgressReporter) -> str:
+    import modules.extra_tools as extra_tools
     target_folder = req.files[0] if (req.files and req.files[0].is_dir()) else _get_out_dir(req)
     reporter.report(30, f"Scanning for duplicates in {target_folder.name}...")
     res = extra_tools.find_duplicate_files(str(target_folder))
@@ -437,6 +450,7 @@ def handle_utilities_duplicates(req, reporter: ProgressReporter) -> str:
 
 
 def handle_utilities_rename(req, reporter: ProgressReporter) -> str:
+    import modules.extra_tools as extra_tools
     prefix = str(req.options.get("prefix") or "")
     suffix = str(req.options.get("suffix") or "")
     find_str = str(req.options.get("find") or "")
@@ -460,6 +474,7 @@ def handle_utilities_rename(req, reporter: ProgressReporter) -> str:
 
 
 def handle_utilities_qr(req, reporter: ProgressReporter) -> str:
+    import modules.extra_tools as extra_tools
     text = str(req.options.get("content") or "").strip()
     if not text:
         # Fall back to using the first file name/path if user provided a file instead of text

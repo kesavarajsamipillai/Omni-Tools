@@ -18,6 +18,9 @@ env/
 
 # Test artifacts
 test_sandbox/
+spotify/
+*.opus
+
 
 # OS files
 .DS_Store

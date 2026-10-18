@@ -1,0 +1,67 @@
+StartupSplash {
+    align: center middle;
+    background: #0B0F14 94%;
+}
+
+#splash-card {
+    width: 68;
+    height: 22;
+    align: center middle;
+    border: round #35445A;
+    background: #10151D;
+    padding: 1 2;
+}
+
+#splash-logo {
+    height: 7;
+    width: 1fr;
+    color: #8B9CFF;
+    text-style: bold;
+    content-align: center middle;
+}
+
+#splash-title {
+    height: 3;
+    color: #E8EDF4;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+}
+
+#splash-subtitle {
+    height: 2;
+    color: #8B9CFF;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+}
+
+#splash-author {
+    height: 2;
+    margin-top: 1;
+    color: #C4CEDB;
+    text-align: center;
+    content-align: center middle;
+}
+
+#splash-github {
+    height: 2;
+    color: #45C99A;
+    text-align: center;
+    content-align: center middle;
+}
+
+#splash-message {
+    height: 2;
+    margin-top: 1;
+    color: #98A6B8;
+    text-align: center;
+    content-align: center middle;
+}
+
+#splash-hint {
+    height: 1;
+    color: #68778A;
+    text-align: center;
+    content-align: center middle;
+}

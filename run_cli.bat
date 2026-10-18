@@ -1,5 +1,8 @@
 @echo off
-title OmniTools — Interface
-echo Launching Terminal Interface...
-python "%~dp0tui_app.py"
-pause
+title OmniTools — Terminal UI
+echo Launching OmniTools Terminal UI...
+python "%~dp0main.py" --tui
+if %ERRORLEVEL% NEQ 0 (
+    pause
+)
+

@@ -1,0 +1,3 @@
+customtkinter>=5.2.2
+# Optional: enables drag-and-drop. Browse buttons work without this package.
+tkinterdnd2>=0.4.2

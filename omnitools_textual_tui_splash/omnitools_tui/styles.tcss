@@ -1,0 +1,221 @@
+Screen {
+    background: #0B0F14;
+    color: #E8EDF4;
+}
+
+#header {
+    height: 3;
+    padding: 0 1;
+    background: #10151D;
+    border-bottom: solid #273342;
+}
+
+#app-title {
+    width: 1fr;
+    color: #E8EDF4;
+    text-style: bold;
+    content-align: left middle;
+}
+
+#mode-label {
+    width: 1fr;
+    color: #98A6B8;
+    content-align: center middle;
+}
+
+#status-pill {
+    width: 16;
+    height: 1;
+    margin: 1 0;
+    text-align: center;
+    text-style: bold;
+    color: #98A6B8;
+    background: #202C3A;
+}
+
+.status-running {
+    color: #0B0F14;
+    background: #8B9CFF;
+}
+
+.status-success {
+    color: #0B0F14;
+    background: #45C99A;
+}
+
+.status-failed {
+    color: #FFFFFF;
+    background: #C9535D;
+}
+
+#main-split {
+    height: 1fr;
+    padding: 1;
+}
+
+#left-panel {
+    width: 3fr;
+    min-width: 50;
+    border: round #273342;
+    background: #10151D;
+    padding: 0 1;
+    margin-right: 1;
+}
+
+#right-panel {
+    width: 2fr;
+    min-width: 30;
+    border: round #273342;
+    background: #10151D;
+    padding: 0 1;
+}
+
+.panel-heading {
+    height: 1;
+    color: #98A6B8;
+    text-style: bold;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+#category-tabs {
+    height: 3;
+    background: #10151D;
+    border-bottom: solid #273342;
+}
+
+Tabs > Tab {
+    background: #151C26;
+    color: #98A6B8;
+}
+
+Tabs > Tab.-active {
+    background: #222B4A;
+    color: #A5B1FF;
+    text-style: bold;
+}
+
+#form-scroll {
+    height: 1fr;
+    padding: 0 1;
+}
+
+.field-label {
+    color: #98A6B8;
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+.field-row {
+    height: auto;
+    min-height: 3;
+    align: left middle;
+    padding: 0 1;
+    border: round #273342;
+    background: #151C26;
+    margin-top: 1;
+}
+
+.field-row Static {
+    width: 1fr;
+    color: #C4CEDB;
+    content-align: left middle;
+}
+
+Input, Select, TextArea {
+    background: #0B0F14;
+    color: #E8EDF4;
+    border: round #273342;
+    margin-top: 0;
+    margin-bottom: 1;
+}
+
+Input:focus, Select:focus, TextArea:focus {
+    border: tall #8B9CFF;
+}
+
+#input-paths {
+    height: 5;
+}
+
+#output-dir {
+    height: 3;
+}
+
+Switch {
+    color: #98A6B8;
+    padding: 0 1;
+}
+
+Button {
+    background: #202C3A;
+    color: #E8EDF4;
+    border: none;
+    text-style: bold;
+}
+
+Button:hover {
+    background: #2A394B;
+}
+
+Button:focus {
+    border: tall #8B9CFF;
+}
+
+Button.primary {
+    background: #8B9CFF;
+    color: #0B0F14;
+}
+
+Button.primary:hover {
+    background: #A5B1FF;
+}
+
+#run-tool {
+    width: 1fr;
+    height: 3;
+    margin-top: 1;
+}
+
+#console-toolbar {
+    height: 3;
+    align: left middle;
+}
+
+#console-title {
+    width: 1fr;
+    color: #98A6B8;
+    text-style: bold;
+    content-align: left middle;
+}
+
+#console {
+    height: 1fr;
+    border: round #273342;
+    background: #080B10;
+    padding: 0 1;
+    scrollbar-color: #68778A;
+    scrollbar-color-hover: #8B9CFF;
+}
+
+#progress {
+    height: 1;
+    margin-top: 1;
+    color: #8B9CFF;
+    background: #273342;
+}
+
+#progress-note {
+    height: 2;
+    color: #68778A;
+    padding: 0 1;
+}
+
+#footer {
+    height: 1;
+    padding: 0 1;
+    background: #10151D;
+    color: #98A6B8;
+    border-top: solid #273342;
+    content-align: left middle;
+}

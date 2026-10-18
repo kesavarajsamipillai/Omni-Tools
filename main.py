@@ -58,12 +58,29 @@ Direct CLI Commands:
         import cli
         cli.main()
     elif args.tui or args.cli:
-        import tui_app
-        tui_app.launch_tui()
+        from modules.handlers_bridge import HANDLERS
+        import sys
+        from pathlib import Path
+        tui_dir = Path(__file__).parent / "omnitools_textual_tui_splash"
+        if str(tui_dir) not in sys.path:
+            sys.path.insert(0, str(tui_dir))
+        from omnitools_tui.app import launch
+        launch(
+            handlers=HANDLERS,
+            brand_name="Kesavaraj Samipillai",
+            github_id="kesavarajsamipillai",
+            show_splash=True
+        )
     else:
         # Default: High-Spec Desktop GUI
-        import app_gui
-        app_gui.launch_gui()
+        from modules.handlers_bridge import HANDLERS
+        import sys
+        from pathlib import Path
+        ui_dir = Path(__file__).parent / "omnitools_ui_starter"
+        if str(ui_dir) not in sys.path:
+            sys.path.insert(0, str(ui_dir))
+        from omnitools_ui.app import launch
+        launch(handlers=HANDLERS)
 
 
 if __name__ == "__main__":

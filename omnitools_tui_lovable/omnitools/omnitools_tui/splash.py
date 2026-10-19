@@ -1,0 +1,55 @@
+"""Short startup splash screen for OmniTools."""
+from __future__ import annotations
+
+from pathlib import Path
+
+from textual.binding import Binding
+from textual.containers import Vertical
+from textual.screen import Screen
+from textual.app import ComposeResult
+from textual.widgets import Static
+
+
+class StartupSplash(Screen[None]):
+    """Dedicated solid startup screen, dismissed automatically or with a key."""
+
+    CSS_PATH = Path(__file__).with_name("splash.tcss")
+    BINDINGS = [
+        Binding("escape", "skip", "Skip intro", show=False),
+        Binding("enter", "skip", "Skip intro", show=False),
+        Binding("space", "skip", "Skip intro", show=False),
+    ]
+
+    def __init__(self, brand_name: str, github_id: str):
+        super().__init__()
+        self.brand_name = brand_name
+        self.github_id = github_id
+
+    def compose(self) -> ComposeResult:
+        logo_art = (
+            "  ██████╗ ███╗   ███╗███╗   ██╗██╗\n"
+            " ██╔═══██╗████╗ ████║████╗  ██║██║\n"
+            " ██║   ██║██╔████╔██║██╔██╗ ██║██║\n"
+            " ██║   ██║██║╚██╔╝██║██║╚██╗██║██║\n"
+            " ╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║\n"
+            "  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝"
+        )
+        with Vertical(id="splash-card"):
+            yield Static(logo_art, id="splash-logo", markup=False)
+            yield Static("OMNITOOLS  ·  OFFLINE SUITE", id="splash-subtitle", markup=False)
+            yield Static(f"Created by: {self.brand_name}", id="splash-author", markup=False)
+            if self.github_id:
+                yield Static(f"github.com/{self.github_id}", id="splash-github", markup=False)
+            yield Static("Starting local workspace…", id="splash-message", markup=False)
+            yield Static("Press Enter or Space to skip", id="splash-hint", markup=False)
+
+    def _close_splash(self) -> None:
+        self.app.pop_screen()
+
+    def on_mount(self) -> None:
+        self.set_timer(1.8, self._close_splash)
+
+    def action_skip(self) -> None:
+        self.app.pop_screen()
+
+

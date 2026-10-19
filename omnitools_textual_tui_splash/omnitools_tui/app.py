@@ -1,59 +1,60 @@
-"""Keyboard-first Textual front end for OmniTools.
+"""OmniTools - Modern Textual Terminal UI.
 
-Processing handlers are supplied by the host application. Synchronous local
-handlers run in a Textual worker thread and may report progress safely.
+Offline-first suite with live queue management, ETA countdown, and zero-gap layout.
 """
 from __future__ import annotations
 
 import os
+from collections import deque
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Deque, Dict, Mapping, Optional
 
-from rich.text import Text
+from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.reactive import reactive
-from textual.widgets import Button, Input, ProgressBar, RichLog, Select, Static, Switch, Tab, Tabs, TextArea
+from textual.containers import Horizontal, Vertical
+from textual.widgets import Button, Footer
 
-from .catalog import CATEGORIES, CATEGORY_BY_ID, TOOLS_BY_CATEGORY, FieldSpec, ToolRequest, ToolSpec
+from .catalog import CATEGORIES, CATEGORY_BY_ID, TOOLS_BY_CATEGORY, ToolRequest, ToolSpec
 from .splash import StartupSplash
+from .widgets import LogPanel, OmniHeader, ProgressCard, ToolPanel
 
-Handler = Callable[[ToolRequest, "ProgressReporter"], Any]
+Handler = Callable[[ToolRequest, Any], Any]
 
 
 class ProgressReporter:
-    """Progress API passed to backend handlers. Safe to call from a worker."""
-    def __init__(self, callback: Callable[[float, str], None]):
-        self._callback = callback
+    """Thread-safe progress reporter passed to handlers."""
+    def __init__(self, on_progress: Callable[[float, str], None]):
+        self._on_progress = on_progress
 
     def report(self, percent: float, message: str = "") -> None:
-        self._callback(max(0.0, min(100.0, float(percent))), str(message))
+        self._on_progress(max(0.0, min(100.0, float(percent))), str(message))
 
     update = report
 
 
+@dataclass
+class Job:
+    tool: ToolSpec
+    request: ToolRequest
+    handler: Handler
+
+
 class OmniToolsTUI(App[None]):
-    """Full-screen offline utility TUI; processor functions are injected."""
     TITLE = "OmniTools"
-    SUB_TITLE = "Offline Utility Suite"
-    CSS_PATH = Path(__file__).with_name("styles.tcss")
+    SUB_TITLE = "100% Offline Suite"
+    CSS_PATH = Path(__file__).with_name("theme.tcss")
+    ENABLE_COMMAND_PALETTE = False
+
     BINDINGS = [
         Binding("q", "quit", "Quit"),
-        Binding("c", "clear_console", "Clear console"),
-        Binding("f5", "run_tool", "Run tool", priority=True),
-        Binding("1", "switch_category('pdf')", "PDF", show=False),
-        Binding("2", "switch_category('documents')", "Documents", show=False),
-        Binding("3", "switch_category('images')", "Images", show=False),
-        Binding("4", "switch_category('media')", "Audio & media", show=False),
-        Binding("5", "switch_category('sorter')", "Folder sorter", show=False),
-        Binding("6", "switch_category('utilities')", "Utilities", show=False),
+        Binding("c", "clear_log", "Clear"),
+        Binding("tab", "focus_next", "Focus", show=True),
+        Binding("f5", "run_tool", "Run", priority=True),
+        *[Binding(str(i), f"tab({i - 1})", "Tabs" if i == 1 else "", show=i == 1)
+          for i in range(1, 7)],
     ]
-
-    active_category = reactive("pdf")
-    active_tool = reactive("pdf.unlock")
-    job_status = reactive("IDLE")
-    progress_value = reactive(0.0)
 
     def __init__(
         self,
@@ -62,243 +63,163 @@ class OmniToolsTUI(App[None]):
         brand_name: str | None = None,
         github_id: str | None = None,
         show_splash: bool = True,
-    ):
+    ) -> None:
         super().__init__()
-        self.handlers = dict(handlers or {})
+        self.handlers: Dict[str, Handler] = dict(handlers or {})
         self.brand_name = (brand_name or os.getenv("OMNITOOLS_AUTHOR") or "Kesavaraj Samipillai").strip()
         self.github_id = (github_id or os.getenv("OMNITOOLS_GITHUB") or "kesavarajsamipillai").strip()
         self.show_splash = show_splash
-        self._last_progress_note = "Ready. Choose a tool and add input paths."
+        self._queue: Deque[Job] = deque()
+        self._busy = False
 
     def compose(self) -> ComposeResult:
-        yield Horizontal(
-            Static("OMNITOOLS  /  LOCAL FILE WORKSPACE", id="app-title"),
-            Static("PDF Tools  ·  Offline", id="mode-label"),
-            Static("●  IDLE", id="status-pill", classes="status-idle", markup=False),
-            id="header",
-        )
-        with Horizontal(id="main-split"):
-            with Vertical(id="left-panel"):
-                yield Static("TOOL CONFIGURATION", classes="panel-heading")
-                yield Tabs(*(Tab(category.short_label, id=category.key) for category in CATEGORIES), active="pdf", id="category-tabs")
-                with VerticalScroll(id="form-scroll"):
-                    yield Static("Selected tool", classes="field-label")
-                    yield Select([(tool.name, tool.id) for tool in TOOLS_BY_CATEGORY["pdf"]], value="pdf.unlock", id="tool-select", allow_blank=False)
-                    yield Static("Input paths  ·  one path per line", classes="field-label")
-                    yield TextArea(placeholder="Paste local file paths here. For a folder tool, enter one folder path.", id="input-paths", soft_wrap=True)
-                    yield Static("Options", classes="field-label")
-                    yield Vertical(id="options-fields")
-                    yield Static("Output folder  ·  leave empty for handler default", classes="field-label")
-                    yield Input(placeholder="/path/to/output", id="output-dir")
-                    yield Button("Run selected tool   F5", id="run-tool", classes="primary", variant="primary")
-            with Vertical(id="right-panel"):
-                with Horizontal(id="console-toolbar"):
-                    yield Static("LIVE EXECUTION LOG", id="console-title")
-                    yield Button("Clear  C", id="clear-console")
-                yield RichLog(id="console", wrap=True, markup=False, auto_scroll=True, min_width=40)
-                yield ProgressBar(total=100, show_eta=False, id="progress")
-                yield Static("Ready. Choose a tool and add input paths.", id="progress-note")
-        yield Static("Q  Quit     C  Clear console     Tab  Focus next     1–6  Switch category     F5  Run selected tool", id="footer")
+        yield OmniHeader(id="header")
+        with Horizontal(id="main"):
+            yield ToolPanel(id="left")
+            with Vertical(id="right"):
+                yield LogPanel(id="log-panel")
+                yield ProgressCard(id="progress-card")
+        yield Footer()
 
-    async def on_mount(self) -> None:
-        await self._render_fields()
-        self._log("INFO", "OmniTools TUI ready. All processing stays on your machine.")
+    def on_mount(self) -> None:
+        self.log_panel.write("SYS", "OmniTools ready. 100% Offline mode.")
+        self.log_panel.write("INFO", "Select a tool, paste paths, and press [b]F5[/] to run.")
         if self.show_splash:
             self.push_screen(StartupSplash(self.brand_name, self.github_id))
 
-    async def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
-        category_key = event.tab.id
-        if not category_key or category_key not in CATEGORY_BY_ID:
-            return
-        self.active_category = category_key
-        choices = TOOLS_BY_CATEGORY[category_key]
-        selector = self.query_one("#tool-select", Select)
-        selector.set_options([(tool.name, tool.id) for tool in choices])
-        self.active_tool = choices[0].id
-        selector.value = self.active_tool
-        await self._render_fields()
-        self._update_mode_label()
+    @property
+    def log_panel(self) -> LogPanel:
+        return self.query_one(LogPanel)
 
-    async def on_select_changed(self, event: Select.Changed) -> None:
-        if event.select.id != "tool-select" or not event.value:
-            return
-        self.active_tool = str(event.value)
-        await self._render_fields()
-        self._update_mode_label()
+    @property
+    def card(self) -> ProgressCard:
+        return self.query_one(ProgressCard)
 
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "run-tool":
-            self.action_run_tool()
-        elif event.button.id == "clear-console":
-            self.action_clear_console()
+    @property
+    def header(self) -> OmniHeader:
+        return self.query_one(OmniHeader)
 
-    async def _render_fields(self) -> None:
-        container = self.query_one("#options-fields", Vertical)
-        await container.remove_children()
-        tool = self._selected_tool()
-        if tool is None or not tool.fields:
-            await container.mount(Static("No extra options for this tool.", classes="field-label"))
-            return
-        widgets = [self._field_widget(field) for field in tool.fields]
-        await container.mount(*widgets)
+    @property
+    def tool_panel(self) -> ToolPanel:
+        return self.query_one(ToolPanel)
 
-    @staticmethod
-    def _field_widget(field: FieldSpec) -> Any:
-        control_id = f"option-{field.key}"
-        if field.kind == "toggle":
-            return Horizontal(Static(field.label), Switch(value=bool(field.default), id=control_id), classes="field-row")
-        if field.kind == "choice":
-            return Vertical(
-                Static(field.label, classes="field-label"),
-                Select([(choice, choice) for choice in field.choices], value=str(field.default), allow_blank=False, id=control_id),
-            )
-        return Vertical(
-            Static(field.label, classes="field-label"),
-            Input(value=str(field.default), placeholder=field.placeholder, password=field.kind == "password", id=control_id),
-        )
+    # ---- typing protection ------------------------------------------
+    def _typing(self) -> bool:
+        from textual.widgets import Input, TextArea
+        return isinstance(self.focused, (Input, TextArea))
 
-    def _selected_tool(self) -> ToolSpec | None:
-        from .catalog import TOOL_BY_ID
-        return TOOL_BY_ID.get(self.active_tool)
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action in ("quit", "clear_log", "tab") and self._typing():
+            return False
+        return True
 
-    def _collect_request(self, tool: ToolSpec) -> ToolRequest:
-        raw_paths = self.query_one("#input-paths", TextArea).text.splitlines()
-        paths: list[Path] = []
-        for raw in raw_paths:
-            value = raw.strip().strip('"').strip("'")
-            if not value:
-                continue
-            path = Path(value).expanduser()
-            if not path.exists():
-                raise ValueError(f"Input path does not exist: {path}")
-            if tool.input_mode == "folder" and not path.is_dir():
-                raise ValueError(f"Expected a folder, got: {path}")
-            if tool.input_mode == "files" and not path.is_file():
-                raise ValueError(f"Expected a file, got: {path}")
-            paths.append(path)
-        if tool.needs_input and not paths:
-            raise ValueError("Add at least one input path before running this tool.")
-        output_value = self.query_one("#output-dir", Input).value.strip()
-        output_dir = Path(output_value).expanduser() if output_value else None
-        if output_dir is not None and output_dir.exists() and not output_dir.is_dir():
-            raise ValueError("The output path exists but is not a directory.")
-        options: dict[str, Any] = {}
-        for field in tool.fields:
-            control_id = f"#option-{field.key}"
-            if field.kind == "toggle":
-                options[field.key] = self.query_one(control_id, Switch).value
-            elif field.kind == "choice":
-                options[field.key] = self.query_one(control_id, Select).value
-            else:
-                options[field.key] = self.query_one(control_id, Input).value
-        return ToolRequest(tool.id, tuple(paths), options, output_dir)
+    # ---- actions -----------------------------------------------------
+    def action_clear_log(self) -> None:
+        self.log_panel.clear()
+
+    def action_tab(self, idx: int) -> None:
+        self.tool_panel.select_index(idx)
 
     def action_run_tool(self) -> None:
-        if self.job_status == "RUNNING":
-            self._log("WARNING", "A task is already running.")
-            return
-        tool = self._selected_tool()
+        panel = self.tool_panel
+        tool = panel.tool
         if tool is None:
-            self._log("ERROR", "Select a tool first.")
+            self.log_panel.write("WARN", "No tool selected.")
             return
+
         handler = self.handlers.get(tool.id) or self.handlers.get(tool.category)
         if handler is None:
-            self._log("WARNING", f"No processor registered for {tool.id}; connect your existing local function.")
+            self.log_panel.write("WARN", f"No processor registered for {tool.id}.")
             return
+
         try:
-            request = self._collect_request(tool)
+            req = self._validate_and_collect(tool, panel)
         except (ValueError, OSError) as exc:
-            self._log("WARNING", str(exc))
+            self.log_panel.write("WARN", str(exc))
             return
-        self.job_status = "RUNNING"
-        self.progress_value = 0.0
-        self._last_progress_note = f"Running {tool.name}…"
-        self.query_one("#progress-note", Static).update(self._last_progress_note)
-        self._log("INFO", f"Started {tool.name} with {len(request.paths)} input path(s).")
-        self.run_worker(lambda: self._execute_handler(request, handler), name=f"job-{tool.id}", group="processing", exclusive=True, thread=True, exit_on_error=False)
 
-    def _execute_handler(self, request: ToolRequest, handler: Handler) -> None:
-        def report_from_worker(percent: float, message: str) -> None:
+        job = Job(tool=tool, request=req, handler=handler)
+        self._queue.append(job)
+        if self._busy:
+            self.log_panel.write("INFO", f"Queued [b]{tool.name}[/] (Position #{len(self._queue)} in queue)")
+        self._sync_queue()
+
+        if not self._busy:
+            self._drain_queue()
+
+    def _validate_and_collect(self, tool: ToolSpec, panel: ToolPanel) -> ToolRequest:
+        raw_paths = panel.paths()
+        paths: list[Path] = []
+        for raw in raw_paths:
+            p = Path(raw).expanduser()
+            if not p.exists():
+                raise ValueError(f"Input path does not exist: {p}")
+            if tool.input_mode == "folder" and not p.is_dir():
+                raise ValueError(f"Expected a folder, got: {p}")
+            if tool.input_mode == "files" and not p.is_file():
+                raise ValueError(f"Expected a file, got: {p}")
+            paths.append(p)
+
+        if tool.needs_input and not paths:
+            raise ValueError(f"Add at least one input path before running {tool.name}.")
+
+        output_dir = panel.output_dir()
+        if output_dir is not None and output_dir.exists() and not output_dir.is_dir():
+            raise ValueError("The specified output path exists but is not a directory.")
+
+        options = panel.option_values()
+        return ToolRequest(tool.id, tuple(paths), options, output_dir)
+
+    # ---- events ------------------------------------------------------
+    def on_tool_panel_changed(self, msg: ToolPanel.Changed) -> None:
+        name = msg.tool.name if msg.tool else "-"
+        self.header.crumb = f"[#64748B]{msg.category_label}[/] [#00E5FF]›[/] [b]{name}[/]"
+
+    def on_tool_panel_run_requested(self, _: ToolPanel.RunRequested) -> None:
+        self.action_run_tool()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "clear-btn":
+            self.action_clear_log()
+
+    # ---- execution queue ---------------------------------------------
+    def _sync_queue(self) -> None:
+        self.card.set_queue(len(self._queue) - (0 if self._busy else 1) if self._queue else 0)
+
+    @work(exclusive=True, group="runner", thread=True)
+    def _drain_queue(self) -> None:
+        self._busy = True
+        self.call_from_thread(self.tool_panel.set_busy, True)
+
+        while self._queue:
+            job = self._queue.popleft()
+            self.call_from_thread(self.card.set_queue, len(self._queue))
+            self.call_from_thread(setattr, self.header, "status", "running")
+            self.call_from_thread(self.card.start, job.tool.name)
+            self.call_from_thread(self.log_panel.write, "INFO", f"Started [b]{job.tool.name}[/] on {len(job.request.paths)} item(s)")
+
+            def on_progress(done: float, msg: str) -> None:
+                self.call_from_thread(self.card.advance, done, 100)
+                if msg:
+                    self.call_from_thread(self.log_panel.write, "INFO", msg)
+
+            reporter = ProgressReporter(on_progress)
+            ok = True
             try:
-                self.call_from_thread(self._on_progress, percent, message)
-            except RuntimeError:
-                pass
-        reporter = ProgressReporter(report_from_worker)
-        try:
-            result = handler(request, reporter)
-        except Exception as exc:
-            try:
-                self.call_from_thread(self._on_job_finished, False, f"{type(exc).__name__}: {exc}")
-            except RuntimeError:
-                pass
-        else:
-            detail = str(result) if result is not None else "Task completed."
-            try:
-                self.call_from_thread(self._on_job_finished, True, detail)
-            except RuntimeError:
-                pass
+                result = job.handler(job.request, reporter)
+                ok = True
+                detail = str(result) if result is not None else "Completed successfully."
+                self.call_from_thread(self.log_panel.write, "OK", detail)
+            except Exception as exc:
+                ok = False
+                self.call_from_thread(self.log_panel.write, "ERR", f"{type(exc).__name__}: {exc}")
 
-    def _on_progress(self, percent: float, message: str) -> None:
-        self.progress_value = percent
-        if message:
-            self._last_progress_note = message
-            self.query_one("#progress-note", Static).update(message)
-            self._log("INFO", message)
+            self.call_from_thread(self.card.finish, ok)
+            self.call_from_thread(setattr, self.header, "status", "success" if ok else "failed")
 
-    def _on_job_finished(self, success: bool, detail: str) -> None:
-        if success:
-            self.job_status = "SUCCESS"
-            self.progress_value = 100.0
-            self._last_progress_note = "Completed"
-            self._log("SUCCESS", detail)
-        else:
-            self.job_status = "FAILED"
-            self._last_progress_note = "Failed — see execution log"
-            self._log("ERROR", detail)
-        self.query_one("#progress-note", Static).update(self._last_progress_note)
-
-    def watch_job_status(self, status: str) -> None:
-        if not self.is_mounted:
-            return
-        pill = self.query_one("#status-pill", Static)
-        pill.update(f"●  {status}")
-        for class_name in ("status-idle", "status-running", "status-success", "status-failed"):
-            pill.remove_class(class_name)
-        class_name = {"IDLE": "status-idle", "RUNNING": "status-running", "SUCCESS": "status-success", "FAILED": "status-failed"}.get(status, "status-idle")
-        pill.add_class(class_name)
-
-    def watch_progress_value(self, value: float) -> None:
-        if self.is_mounted:
-            self.query_one("#progress", ProgressBar).update(progress=value)
-
-    def watch_active_tool(self, tool_id: str) -> None:
-        if self.is_mounted:
-            self._update_mode_label()
-
-    def _update_mode_label(self) -> None:
-        if not self.is_mounted:
-            return
-        tool = self._selected_tool()
-        category = CATEGORY_BY_ID.get(self.active_category)
-        label = category.short_label if category else "OFFLINE"
-        mode = f"{label}  ·  {tool.name}" if tool else label
-        self.query_one("#mode-label", Static).update(mode)
-
-    def _log(self, level: str, message: str) -> None:
-        if not self.is_mounted:
-            return
-        color = {"INFO": "#00E5FF", "SUCCESS": "#00FF9D", "WARNING": "#FBBF24", "ERROR": "#FF3366"}.get(level, "#94A3B8")
-        line = Text.assemble((f"[{level}]", f"bold {color}"), (" "), (str(message), "#F8FAFC"))
-        self.query_one("#console", RichLog).write(line)
-
-    def action_clear_console(self) -> None:
-        self.query_one("#console", RichLog).clear()
-        self._log("INFO", "Console cleared.")
-
-    def action_switch_category(self, category_key: str) -> None:
-        if category_key not in CATEGORY_BY_ID:
-            return
-        self.query_one("#category-tabs", Tabs).active = category_key
+        self._busy = False
+        self.call_from_thread(self.card.set_queue, 0)
+        self.call_from_thread(self.tool_panel.set_busy, False)
 
 
 def launch(
@@ -308,7 +229,6 @@ def launch(
     github_id: str | None = None,
     show_splash: bool = True,
 ) -> None:
-    """Start the TUI with local handlers and optional startup branding."""
     OmniToolsTUI(
         handlers=handlers,
         brand_name=brand_name,

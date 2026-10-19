@@ -1,6 +1,6 @@
 # ⚡ OmniTools — 100% Offline Python Suite
 
-[![GitHub Release](https://img.shields.io/badge/release-v1.1.0-blue.svg)](https://github.com/kesavarajsamipillai/Omni-Tools/releases)
+[![GitHub Release](https://img.shields.io/badge/release-v1.2.0-blue.svg)](https://github.com/kesavarajsamipillai/Omni-Tools/releases)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-brightgreen.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Author](https://img.shields.io/badge/created%20by-Kesavaraj%20Samipillai-orange.svg)](https://github.com/kesavarajsamipillai)
@@ -35,6 +35,14 @@ After that, the `omni-tools` command is available everywhere on the system:
 omni-tools -tui
 ```
 *(Or double-click `run_cli.bat`)*
+
+**v1.2.0 Modern Terminal UI Enhancements:**
+- 🖥️ **Zero-Gap Cyberpunk Layout**: Full-screen responsive split layout with zero margin/padding overflow on Windows Terminal & PowerShell.
+- ⏱️ **Live ETA Countdown**: Real-time remaining time calculation (`ETA mm:ss`) on every active task.
+- 📦 **Task Stacking & Queuing**: Press `F5` / click `"QUEUE ANOTHER RUN"` to stack tasks without waiting; jobs process sequentially with a live `Queued: N` counter.
+- ⚡ **Branded Solid Splash Screen**: Fast startup branding screen with instant `Space`/`Enter` skip.
+- 🛡️ **ASCII-Safe & 100% Offline**: Crash-proof console output with lazy module loading for instant launch times.
+
 
 ### 2. Launch Desktop Application (GUI)
 ```bash

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnitools-tui"
+version = "0.1.0"
+description = "OmniTools - full-screen offline developer suite (Textual TUI)"
+requires-python = ">=3.9"
+dependencies = ["textual>=0.40.0"]
+
+[project.scripts]
+omnitools = "omnitools_tui.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["omnitools_tui*"]
+
+[tool.setuptools.package-data]
+omnitools_tui = ["*.tcss"]

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omni-tools"
-version = "1.1.0"
+version = "1.2.0"
 description = "100% Offline Python Suite & Terminal UI"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -37,7 +37,8 @@ packages = [
     "omnitools_ui_starter",
     "omnitools_ui_starter.omnitools_ui",
     "omnitools_textual_tui_splash",
-    "omnitools_textual_tui_splash.omnitools_tui"
+    "omnitools_textual_tui_splash.omnitools_tui",
+    "omnitools_textual_tui_splash.omnitools_tui.widgets"
 ]
 
 [tool.setuptools.package-data]

@@ -58,6 +58,18 @@ def _expand_files(
     return expanded
 
 
+def _normalize_fmt(ext_or_fmt: str) -> str:
+    """Normalizes format or file extension for comparison (e.g. jpeg==jpg, ppt==pptx, doc==docx)."""
+    s = str(ext_or_fmt).lower().lstrip(".")
+    if s in ("jpeg", "jpg"):
+        return "jpg"
+    if s in ("pptx", "ppt"):
+        return "pptx"
+    if s in ("docx", "doc"):
+        return "docx"
+    return s
+
+
 # =========================================================================
 # PDF HANDLERS
 # =========================================================================
@@ -210,9 +222,50 @@ def handle_pdf_images_to_pdf(req, reporter: ProgressReporter) -> str:
 # DOCUMENT HANDLERS
 # =========================================================================
 
+def handle_doc_convert(req, reporter: ProgressReporter) -> str:
+    import modules.doc_tools as doc_tools
+    files = _expand_files(req.files, doc_tools.SUPPORTED_DOCUMENT_FORMATS)
+    if not files:
+        raise RuntimeError("No supported document files (PDF, DOCX, PPTX, TXT) found in selected path(s).")
+    target_fmt = str(req.options.get("format") or "PDF").upper()
+    if target_fmt == "PPT":
+        target_fmt = "PPTX"
+    ext_out = "pptx" if target_fmt == "PPTX" else target_fmt.lower()
+    keep_originals = bool(req.options.get("keep_originals", True))
+    out_dir = _get_out_dir(req)
+    total = len(files)
+    count = 0
+    skipped = 0
+
+    for i, path in enumerate(files, 1):
+        src_fmt = doc_tools.detect_document_type(str(path))
+        if _normalize_fmt(src_fmt) == _normalize_fmt(target_fmt):
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already {target_fmt}. Skipping...")
+            skipped += 1
+            continue
+
+        reporter.report((i - 1) / total * 100, f"[{i}/{total}] [Auto-detect: {src_fmt} -> {target_fmt}] Converting {path.name}...")
+        out_path = out_dir / f"{path.stem}.{ext_out}"
+        res = doc_tools.convert_document(str(path), str(out_path), target_format=target_fmt)
+        if not res.get("success"):
+            raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if res.get("skipped"):
+            skipped += 1
+            continue
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
+        count += 1
+
+    reporter.report(100, "Document conversion complete.")
+    msg = f"Converted {count} document(s) to {target_fmt}."
+    if skipped:
+        msg += f" (Skipped {skipped} already in {target_fmt} format)"
+    return msg
+
+
 def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
-    files = _expand_files(req.files, ["pdf"])
+    files = _expand_files(req.files, ["pdf", "docx"])
     if not files:
         raise RuntimeError("No PDF files found in the selected path(s).")
     keep_originals = bool(req.options.get("keep_originals", True))
@@ -221,6 +274,9 @@ def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
     count = 0
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == "docx":
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already DOCX. Skipping...")
+            continue
         reporter.report((i - 1) / total * 100, f"Converting {path.name} to DOCX...")
         out_path = out_dir / f"{path.stem}.docx"
         res = doc_tools.pdf_to_docx(str(path), str(out_path))
@@ -236,7 +292,7 @@ def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
 
 def handle_doc_docx_to_pdf(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
-    files = _expand_files(req.files, ["docx", "doc"])
+    files = _expand_files(req.files, ["docx", "doc", "pdf"])
     if not files:
         raise RuntimeError("No Word document (.docx/.doc) files found in the selected path(s).")
     keep_originals = bool(req.options.get("keep_originals", True))
@@ -245,6 +301,9 @@ def handle_doc_docx_to_pdf(req, reporter: ProgressReporter) -> str:
     count = 0
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == "pdf":
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already PDF. Skipping...")
+            continue
         reporter.report((i - 1) / total * 100, f"Converting {path.name} to PDF...")
         out_path = out_dir / f"{path.stem}.pdf"
         res = doc_tools.docx_to_pdf(str(path), str(out_path))
@@ -260,7 +319,7 @@ def handle_doc_docx_to_pdf(req, reporter: ProgressReporter) -> str:
 
 def handle_doc_pptx_to_pdf(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
-    files = _expand_files(req.files, ["pptx", "ppt"])
+    files = _expand_files(req.files, ["pptx", "ppt", "pdf"])
     if not files:
         raise RuntimeError("No PowerPoint presentation (.pptx/.ppt) files found in the selected path(s).")
     keep_originals = bool(req.options.get("keep_originals", True))
@@ -269,6 +328,9 @@ def handle_doc_pptx_to_pdf(req, reporter: ProgressReporter) -> str:
     count = 0
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == "pdf":
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already PDF. Skipping...")
+            continue
         reporter.report((i - 1) / total * 100, f"Converting {path.name} to PDF...")
         out_path = out_dir / f"{path.stem}.pdf"
         res = doc_tools.pptx_to_pdf(str(path), str(out_path))
@@ -284,7 +346,7 @@ def handle_doc_pptx_to_pdf(req, reporter: ProgressReporter) -> str:
 
 def handle_doc_pdf_to_pptx(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
-    files = _expand_files(req.files, ["pdf"])
+    files = _expand_files(req.files, ["pdf", "pptx", "ppt"])
     if not files:
         raise RuntimeError("No PDF files found in the selected path(s).")
     keep_originals = bool(req.options.get("keep_originals", True))
@@ -293,6 +355,9 @@ def handle_doc_pdf_to_pptx(req, reporter: ProgressReporter) -> str:
     count = 0
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == "pptx":
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already PowerPoint. Skipping...")
+            continue
         reporter.report((i - 1) / total * 100, f"Converting {path.name} to PowerPoint PPTX...")
         out_path = out_dir / f"{path.stem}.pptx"
         res = doc_tools.pdf_to_pptx(str(path), str(out_path))
@@ -308,7 +373,7 @@ def handle_doc_pdf_to_pptx(req, reporter: ProgressReporter) -> str:
 
 def handle_doc_txt_to_pdf(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
-    files = _expand_files(req.files, ["txt"])
+    files = _expand_files(req.files, ["txt", "pdf"])
     if not files:
         raise RuntimeError("No TXT files found in the selected path(s).")
     font_size = int(req.options.get("font_size") or 11)
@@ -317,6 +382,9 @@ def handle_doc_txt_to_pdf(req, reporter: ProgressReporter) -> str:
     count = 0
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == "pdf":
+            reporter.report((i - 1) / len(files) * 100, f"[SKIP] {path.name} is already PDF. Skipping...")
+            continue
         reporter.report((i - 1) / len(files) * 100, f"Formatting {path.name} as PDF...")
         out_path = out_dir / f"{path.stem}.pdf"
         res = doc_tools.text_to_pdf(str(path), str(out_path), font_size=font_size)
@@ -347,6 +415,9 @@ def handle_image_convert(req, reporter: ProgressReporter) -> str:
     total = len(files)
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == _normalize_fmt(target_fmt):
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already {target_fmt.upper()}. Skipping...")
+            continue
         reporter.report((i - 1) / total * 100, f"Converting {path.name} -> {target_fmt.upper()}...")
         out_path = out_dir / f"{path.stem}.{ext_out}"
         res = image_tools.convert_image(str(path), str(out_path), target_format=target_fmt)
@@ -373,6 +444,9 @@ def handle_image_batch_convert(req, reporter: ProgressReporter) -> str:
     total = len(files)
 
     for i, path in enumerate(files, 1):
+        if _normalize_fmt(path.suffix) == _normalize_fmt(target_fmt):
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already {target_fmt.upper()}. Skipping...")
+            continue
         reporter.report((i - 1) / total * 100, f"Batch converting {path.name} -> {target_fmt.upper()}...")
         out_file = out_dir / f"{path.stem}.{ext_out}"
         res = image_tools.convert_image(str(path), str(out_file), target_format=target_fmt)
@@ -498,6 +572,9 @@ def handle_media_convert(req, reporter: ProgressReporter) -> str:
     for i, path in enumerate(files, 1):
         detection = audio_tools.detect_media_type(str(path))
         detected_fmt = (detection.get("format") or path.suffix.lstrip(".")).upper()
+        if _normalize_fmt(detected_fmt) == _normalize_fmt(target_fmt):
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already {target_fmt.upper()}. Skipping...")
+            continue
         tag_info = f" (\"{detection['title']}\")" if detection.get("title") else ""
         cover_info = " + cover art" if detection.get("has_cover") else ""
         reporter.report((i - 1) / total * 100, f"[{i}/{total}] [Auto-detect: {detected_fmt} -> {target_fmt.upper()}] Converting {path.name}{tag_info}{cover_info}...")
@@ -695,6 +772,7 @@ HANDLERS: Dict[str, Callable] = {
     "pdf.images_to_pdf": handle_pdf_images_to_pdf,
 
     # Documents
+    "documents.convert": handle_doc_convert,
     "documents.pdf_to_docx": handle_doc_pdf_to_docx,
     "documents.docx_to_pdf": handle_doc_docx_to_pdf,
     "documents.pptx_to_pdf": handle_doc_pptx_to_pdf,

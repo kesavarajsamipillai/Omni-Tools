@@ -291,3 +291,194 @@ def text_to_pdf(input_txt: str, output_pdf: str, font_size: int = 10) -> dict:
         return {"success": True, "output": output_pdf, "lines_processed": len(lines)}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def pdf_to_txt(input_pdf: str, output_txt: str) -> dict:
+    """Extracts all text content from a PDF document offline."""
+    if not os.path.exists(input_pdf):
+        return {"success": False, "error": f"File not found: {input_pdf}"}
+    try:
+        import pymupdf
+        os.makedirs(os.path.dirname(os.path.abspath(output_txt)), exist_ok=True)
+        doc = pymupdf.open(input_pdf)
+        text_parts = [page.get_text() for page in doc]
+        doc.close()
+        with open(output_txt, "w", encoding="utf-8") as f:
+            f.write("\n\n--- Page Break ---\n\n".join(text_parts))
+        return {"success": True, "output": output_txt, "pages": len(text_parts)}
+    except Exception as e:
+        return {"success": False, "error": f"PDF to TXT failed: {str(e)}"}
+
+
+def docx_to_txt(input_docx: str, output_txt: str) -> dict:
+    """Extracts plain text from a Word DOCX document."""
+    if not os.path.exists(input_docx):
+        return {"success": False, "error": f"File not found: {input_docx}"}
+    try:
+        import docx
+        os.makedirs(os.path.dirname(os.path.abspath(output_txt)), exist_ok=True)
+        doc = docx.Document(input_docx)
+        lines = [p.text for p in doc.paragraphs]
+        with open(output_txt, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        return {"success": True, "output": output_txt, "paragraphs": len(lines)}
+    except Exception as e:
+        return {"success": False, "error": f"DOCX to TXT failed: {str(e)}"}
+
+
+def pptx_to_txt(input_pptx: str, output_txt: str) -> dict:
+    """Extracts plain text from a PowerPoint PPTX/PPT presentation."""
+    if not os.path.exists(input_pptx):
+        return {"success": False, "error": f"File not found: {input_pptx}"}
+    try:
+        import pptx
+        os.makedirs(os.path.dirname(os.path.abspath(output_txt)), exist_ok=True)
+        prs = pptx.Presentation(input_pptx)
+        slide_texts = []
+        for i, slide in enumerate(prs.slides, 1):
+            lines = []
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for p in shape.text_frame.paragraphs:
+                        t = p.text.strip()
+                        if t:
+                            lines.append(t)
+            slide_texts.append(f"--- Slide {i} ---\n" + "\n".join(lines))
+        with open(output_txt, "w", encoding="utf-8") as f:
+            f.write("\n\n".join(slide_texts))
+        return {"success": True, "output": output_txt, "slides": len(prs.slides)}
+    except Exception as e:
+        return {"success": False, "error": f"PPT to TXT failed: {str(e)}"}
+
+
+def text_to_docx(input_txt: str, output_docx: str) -> dict:
+    """Converts a plain text file into a Word DOCX document."""
+    if not os.path.exists(input_txt):
+        return {"success": False, "error": f"File not found: {input_txt}"}
+    try:
+        import docx
+        os.makedirs(os.path.dirname(os.path.abspath(output_docx)), exist_ok=True)
+        doc = docx.Document()
+        with open(input_txt, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                doc.add_paragraph(line.rstrip("\r\n"))
+        doc.save(output_docx)
+        return {"success": True, "output": output_docx}
+    except Exception as e:
+        return {"success": False, "error": f"TXT to DOCX failed: {str(e)}"}
+
+
+def pptx_to_docx(input_pptx: str, output_docx: str) -> dict:
+    """Converts a PowerPoint presentation to a Word DOCX document via PDF intermediate or direct extraction."""
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_pdf = os.path.join(td, "temp_pptx.pdf")
+            res_pdf = pptx_to_pdf(input_pptx, tmp_pdf)
+            if res_pdf.get("success") and os.path.exists(tmp_pdf):
+                return pdf_to_docx(tmp_pdf, output_docx)
+            # Fallback: extract text to docx
+            tmp_txt = os.path.join(td, "temp_pptx.txt")
+            res_txt = pptx_to_txt(input_pptx, tmp_txt)
+            if res_txt.get("success"):
+                return text_to_docx(tmp_txt, output_docx)
+            return {"success": False, "error": res_pdf.get("error", "Failed to convert PPT to DOCX")}
+    except Exception as e:
+        return {"success": False, "error": f"PPT to DOCX failed: {str(e)}"}
+
+
+def docx_to_pptx(input_docx: str, output_pptx: str) -> dict:
+    """Converts a Word DOCX document to a PowerPoint PPTX presentation via PDF intermediate."""
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_pdf = os.path.join(td, "temp_docx.pdf")
+            res_pdf = docx_to_pdf(input_docx, tmp_pdf)
+            if not res_pdf.get("success") or not os.path.exists(tmp_pdf):
+                return {"success": False, "error": res_pdf.get("error", "DOCX to PDF step failed")}
+            return pdf_to_pptx(tmp_pdf, output_pptx)
+    except Exception as e:
+        return {"success": False, "error": f"DOCX to PPT failed: {str(e)}"}
+
+
+def text_to_pptx(input_txt: str, output_pptx: str) -> dict:
+    """Converts a plain text file into a PowerPoint presentation via PDF intermediate."""
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            tmp_pdf = os.path.join(td, "temp_txt.pdf")
+            res_pdf = text_to_pdf(input_txt, tmp_pdf)
+            if not res_pdf.get("success") or not os.path.exists(tmp_pdf):
+                return {"success": False, "error": res_pdf.get("error", "TXT to PDF step failed")}
+            return pdf_to_pptx(tmp_pdf, output_pptx)
+    except Exception as e:
+        return {"success": False, "error": f"TXT to PPT failed: {str(e)}"}
+
+
+SUPPORTED_DOCUMENT_FORMATS = ["pdf", "docx", "doc", "pptx", "ppt", "txt"]
+
+
+def detect_document_type(file_path: str) -> str:
+    """Detects document format from file extension and contents."""
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
+    if ext == "pdf":
+        return "PDF"
+    elif ext in ("docx", "doc"):
+        return "DOCX"
+    elif ext in ("pptx", "ppt"):
+        return "PPTX"
+    elif ext == "txt":
+        return "TXT"
+    return ext.upper()
+
+
+def convert_document(input_path: str, output_path: str, target_format: str) -> dict:
+    """
+    Universal document converter with auto-detection.
+    Supports conversions across PDF, DOCX, PPTX (PPT), and TXT.
+    If source format matches target format, returns skipped status.
+    """
+    src_fmt = detect_document_type(input_path)
+    tgt_fmt = target_format.upper()
+    if tgt_fmt == "PPT":
+        tgt_fmt = "PPTX"
+
+    if src_fmt == tgt_fmt:
+        return {
+            "success": True,
+            "skipped": True,
+            "source_format": src_fmt,
+            "target_format": tgt_fmt,
+            "message": f"Source is already in {tgt_fmt} format"
+        }
+
+    if tgt_fmt == "PDF":
+        if src_fmt == "DOCX":
+            return docx_to_pdf(input_path, output_path)
+        elif src_fmt == "PPTX":
+            return pptx_to_pdf(input_path, output_path)
+        elif src_fmt == "TXT":
+            return text_to_pdf(input_path, output_path)
+    elif tgt_fmt == "DOCX":
+        if src_fmt == "PDF":
+            return pdf_to_docx(input_path, output_path)
+        elif src_fmt == "PPTX":
+            return pptx_to_docx(input_path, output_path)
+        elif src_fmt == "TXT":
+            return text_to_docx(input_path, output_path)
+    elif tgt_fmt == "PPTX":
+        if src_fmt == "PDF":
+            return pdf_to_pptx(input_path, output_path)
+        elif src_fmt == "DOCX":
+            return docx_to_pptx(input_path, output_path)
+        elif src_fmt == "TXT":
+            return text_to_pptx(input_path, output_path)
+    elif tgt_fmt == "TXT":
+        if src_fmt == "PDF":
+            return pdf_to_txt(input_path, output_path)
+        elif src_fmt == "DOCX":
+            return docx_to_txt(input_path, output_path)
+        elif src_fmt == "PPTX":
+            return pptx_to_txt(input_path, output_path)
+
+    return {"success": False, "error": f"Unsupported conversion from {src_fmt} to {tgt_fmt}"}

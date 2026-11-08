@@ -14,7 +14,7 @@ A complete, high-performance, **completely offline** desktop & terminal toolkit 
 | Category | Offline Tools Included |
 | :--- | :--- |
 | **📄 PDF Tools** | • Unlock encrypted PDFs (remove known passwords)<br>• Protect/Encrypt PDFs with passwords<br>• Merge multiple PDFs into one<br>• Split PDFs or extract custom page ranges<br>• Convert PDF pages into high-res images (PNG/JPG/WEBP)<br>• Combine images into a single PDF |
-| **📝 Document Converter** | • Convert PDF to editable Word DOCX (`pdf2docx`)<br>• Convert Word DOCX to PDF (`docx2pdf` + ReportLab fallback)<br>• Convert Plain Text (`.txt`) to clean PDF |
+| **📝 Document Converter** | • Convert PDF to editable Word DOCX (`pdf2docx`)<br>• Convert Word DOCX to PDF (`docx2pdf` + ReportLab fallback)<br>• Convert PowerPoint (`.pptx`, `.ppt`) to PDF (`pptx_to_pdf`)<br>• Convert PDF to PowerPoint presentation slides (`pdf_to_pptx`)<br>• Convert Plain Text (`.txt`) to clean PDF |
 | **🖼️ Universal Image Converter** | • Universal conversion across **PNG, JPG/JPEG, WEBP, BMP, GIF, TIFF, ICO**<br>• Handles alpha transparency cleanly (RGBA to RGB with white canvas)<br>• Batch convert entire folders of images<br>• Image Resizer (by percentage or custom dimensions with aspect lock)<br>• Image Compressor (reduce file size) |
 | **🎵 Audio & Video Tools** | • Convert audio formats (**MP3, WAV, AAC, FLAC, OGG, M4A, OPUS**)<br>• Batch convert audio folders<br>• Extract audio soundtrack from videos (**MP4, MKV, AVI** &rarr; MP3/WAV)<br>• Audio Trimmer (cut by start time and duration) |
 | **🗂️ Smart Folder Sorter** | • Automatically sort folders into neat categories and subfolders:<br>  - `Images/JPG`, `Images/PNG`, `Images/WEBP`...<br>  - `Documents/PDF`, `Documents/DOCX`, `Documents/PPTX`...<br>  - `Audio/MP3`, `Audio/WAV`...<br>  - `Videos/MP4`, `Videos/MKV`...<br>  - `Archives/ZIP`, `Archives/RAR`...<br>  - `Code & Data/Python`, `Code & Data/JSON`...<br>• **Dry-Run Preview**: Inspect breakdown before moving files<br>• **Collision Safety**: Never overwrites files with identical names |
@@ -70,6 +70,12 @@ python cli.py pdf2docx -i report.pdf -o report.docx
 
 # Convert Word to PDF
 python cli.py docx2pdf -i document.docx -o document.pdf
+
+# Convert PowerPoint to PDF
+python cli.py ppt2pdf -i presentation.pptx -o presentation.pdf
+
+# Convert PDF to PowerPoint (PPTX)
+python cli.py pdf2ppt -i document.pdf -o presentation.pptx
 
 # Convert image format
 python cli.py img-convert -i photo.png -f jpg -o photo.jpg

@@ -157,10 +157,6 @@ class OmniToolsTUI(App[None]):
             path = Path(value).expanduser()
             if not path.exists():
                 raise ValueError(f"Input path does not exist: {path}")
-            if tool.input_mode == "folder" and not path.is_dir():
-                raise ValueError(f"Expected a folder, got: {path}")
-            if tool.input_mode == "files" and not path.is_file():
-                raise ValueError(f"Expected a file, got: {path}")
             paths.append(path)
         if tool.needs_input and not paths:
             raise ValueError("Add at least one input path before running this tool.")

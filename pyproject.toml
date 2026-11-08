@@ -23,7 +23,9 @@ dependencies = [
     "pdf2docx",
     "docx2pdf",
     "reportlab",
-    "qrcode"
+    "python-pptx",
+    "qrcode",
+    "mutagen"
 ]
 
 [project.scripts]

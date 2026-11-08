@@ -17,7 +17,7 @@ from modules.pdf_tools import (
     remove_pdf_password, set_pdf_password, merge_pdfs, split_pdf,
     pdf_to_images, images_to_pdf
 )
-from modules.doc_tools import pdf_to_docx, docx_to_pdf, text_to_pdf
+from modules.doc_tools import pdf_to_docx, docx_to_pdf, text_to_pdf, pptx_to_pdf, pdf_to_pptx
 from modules.image_tools import (
     convert_image, batch_convert_images, resize_image, compress_image,
     SUPPORTED_IMAGE_FORMATS
@@ -159,6 +159,8 @@ def menu_docs():
         table.add_row("1", "📄 -> 📝 Convert PDF to Word DOCX")
         table.add_row("2", "📝 -> 📄 Convert Word DOCX to PDF")
         table.add_row("3", "📄 -> 📄 Convert Text (.txt) to Formatted PDF")
+        table.add_row("4", "📊 -> 📄 Convert PowerPoint (PPT/PPTX) to PDF")
+        table.add_row("5", "📄 -> 📊 Convert PDF to PowerPoint (PPTX)")
         table.add_row("0", "⬅️ Back to Main Menu")
         console.print(table)
 
@@ -186,6 +188,9 @@ def menu_docs():
                 res = docx_to_pdf(inp, out)
             if res["success"]:
                 engine_msg = f" (Engine: {res.get('engine')})" if 'engine' in res else ""
+                console.print(f"[bold green]✓ Successfully converted to PDF:[/bold green] [cyan]{res['output']}[/cyan]{engine_msg}")
+            else:
+                console.print(f"[bold red]✗ Error:[/bold red] {res['error']}")
             Prompt.ask("\nPress Enter to continue")
 
         elif choice == "3":
@@ -196,6 +201,31 @@ def menu_docs():
                 res = text_to_pdf(inp, out)
             if res["success"]:
                 console.print(f"[bold green]✓ Successfully converted {res['lines_processed']} lines:[/bold green] [cyan]{res['output']}[/cyan]")
+            else:
+                console.print(f"[bold red]✗ Error:[/bold red] {res['error']}")
+            Prompt.ask("\nPress Enter to continue")
+
+        elif choice == "4":
+            inp = clean_path(Prompt.ask("Enter PowerPoint (PPTX/PPT) file path"))
+            default_out = os.path.splitext(inp)[0] + ".pdf" if inp else ""
+            out = clean_path(Prompt.ask("Enter output PDF path", default=default_out))
+            with console.status("[bold green]Converting PowerPoint to PDF...[/bold green]"):
+                res = pptx_to_pdf(inp, out)
+            if res["success"]:
+                engine_msg = f" (Engine: {res.get('engine')})" if 'engine' in res else ""
+                console.print(f"[bold green]✓ Successfully converted presentation to PDF:[/bold green] [cyan]{res['output']}[/cyan]{engine_msg}")
+            else:
+                console.print(f"[bold red]✗ Error:[/bold red] {res['error']}")
+            Prompt.ask("\nPress Enter to continue")
+
+        elif choice == "5":
+            inp = clean_path(Prompt.ask("Enter PDF file path"))
+            default_out = os.path.splitext(inp)[0] + ".pptx" if inp else ""
+            out = clean_path(Prompt.ask("Enter output PPTX path", default=default_out))
+            with console.status("[bold green]Converting PDF to PowerPoint PPTX...[/bold green]"):
+                res = pdf_to_pptx(inp, out)
+            if res["success"]:
+                console.print(f"[bold green]✓ Successfully converted PDF to PPTX presentation:[/bold green] [cyan]{res['output']}[/cyan] ({res.get('pages', 0)} slides)")
             else:
                 console.print(f"[bold red]✗ Error:[/bold red] {res['error']}")
             Prompt.ask("\nPress Enter to continue")
@@ -287,9 +317,9 @@ def menu_audio():
         table = Table(title="🎵 Audio Converter & Video Extractor", show_header=True, header_style="bold magenta")
         table.add_column("Option", style="cyan", width=8)
         table.add_column("Tool Description", style="white")
-        table.add_row("1", "🔄 Convert Single Audio File (MP3, WAV, AAC, FLAC, OGG, M4A, OPUS)")
-        table.add_row("2", "📁 Batch Convert Audio Folder")
-        table.add_row("3", "🎬 Extract Audio from Video (MP4, MKV, AVI -> MP3/WAV)")
+        table.add_row("1", "🔄 Auto-detect & Convert Audio (OPUS, MP3, M4A, FLAC, WAV, etc.)")
+        table.add_row("2", "📁 Auto-detect & Batch Convert Folder (Preserving Tags & Covers)")
+        table.add_row("3", "🎬 Extract Audio from Video (MP4, MKV, AVI -> MP3/OPUS/WAV)")
         table.add_row("4", "✂️ Trim / Cut Audio File")
         table.add_row("0", "⬅️ Back to Main Menu")
         console.print(table)
@@ -299,15 +329,21 @@ def menu_audio():
             break
 
         if choice == "1":
-            inp = clean_path(Prompt.ask("Enter input audio path"))
+            inp = clean_path(Prompt.ask("Enter input audio/media path"))
+            from modules.audio_tools import detect_media_type
+            det = detect_media_type(inp)
+            det_fmt = det.get("format", "audio").upper()
+            det_info = f"Title: {det.get('title') or 'N/A'} | Artist: {det.get('artist') or 'N/A'} | Cover: {'Yes' if det.get('has_cover') else 'None'}"
+            console.print(f"[bold cyan]Auto-detected:[/] [bold yellow]{det_fmt}[/] ({det_info})")
+
             target_fmt = Prompt.ask(f"Target format ({'/'.join(SUPPORTED_AUDIO_FORMATS)})", default="mp3").lower()
             default_out = os.path.splitext(inp)[0] + f".{target_fmt}" if inp else ""
             out = clean_path(Prompt.ask("Enter output audio path", default=default_out))
-            bitrate = Prompt.ask("Bitrate (e.g. 128k, 192k, 320k)", default="192k")
-            with console.status("[bold green]Converting audio offline...[/bold green]"):
+            bitrate = Prompt.ask("Bitrate (e.g. 128k, 192k, 256k, 320k)", default="192k")
+            with console.status(f"[bold green]Auto-detecting and converting {det_fmt} -> {target_fmt.upper()}...[/bold green]"):
                 res = convert_audio(inp, out, target_fmt, bitrate=bitrate)
             if res["success"]:
-                console.print(f"[bold green]✓ Audio converted successfully:[/bold green] [cyan]{res['output']}[/cyan]")
+                console.print(f"[bold green]✓ Converted successfully:[/bold green] [cyan]{res['output']}[/cyan] (Song details & cover art preserved)")
             else:
                 console.print(f"[bold red]✗ Error:[/bold red] {res['error']}")
             Prompt.ask("\nPress Enter to continue")
@@ -316,10 +352,10 @@ def menu_audio():
             inp_folder = clean_path(Prompt.ask("Enter audio folder"))
             target_fmt = Prompt.ask(f"Target format ({'/'.join(SUPPORTED_AUDIO_FORMATS)})", default="mp3").lower()
             out_folder = clean_path(Prompt.ask("Enter output folder", default=os.path.join(inp_folder, f"converted_{target_fmt}")))
-            with console.status("[bold green]Batch converting audio files...[/bold green]"):
+            with console.status(f"[bold green]Auto-detecting and batch converting to {target_fmt.upper()}...[/bold green]"):
                 res = batch_convert_audio(inp_folder, out_folder, target_fmt)
             if res["success"]:
-                console.print(f"[bold green]✓ Converted {res['converted_count']} audio files to:[/bold green] [cyan]{out_folder}[/cyan]")
+                console.print(f"[bold green]✓ Converted {res['converted_count']} audio files to:[/bold green] [cyan]{out_folder}[/cyan] (Tags & covers preserved)")
             else:
                 console.print(f"[bold red]✗ Error:[/bold red] {res['error']}")
             Prompt.ask("\nPress Enter to continue")
@@ -597,6 +633,16 @@ def main():
     p_d2p.add_argument("--input", "-i", required=True)
     p_d2p.add_argument("--output", "-o", required=True)
 
+    # PPTX2PDF / PPT2PDF
+    p_p2pdf = subparsers.add_parser("ppt2pdf", aliases=["pptx2pdf"], help="Convert PowerPoint (PPT/PPTX) to PDF")
+    p_p2pdf.add_argument("--input", "-i", required=True)
+    p_p2pdf.add_argument("--output", "-o", required=True)
+
+    # PDF2PPTX / PDF2PPT
+    p_pdf2p = subparsers.add_parser("pdf2ppt", aliases=["pdf2pptx"], help="Convert PDF to PowerPoint (PPTX)")
+    p_pdf2p.add_argument("--input", "-i", required=True)
+    p_pdf2p.add_argument("--output", "-o", required=True)
+
     # Image Convert
     p_ic = subparsers.add_parser("img-convert", help="Convert single image")
     p_ic.add_argument("--input", "-i", required=True)
@@ -657,6 +703,12 @@ def main():
         console.print(res)
     elif args.command == "docx2pdf":
         res = docx_to_pdf(args.input, args.output)
+        console.print(res)
+    elif args.command in ("ppt2pdf", "pptx2pdf"):
+        res = pptx_to_pdf(args.input, args.output)
+        console.print(res)
+    elif args.command in ("pdf2ppt", "pdf2pptx"):
+        res = pdf_to_pptx(args.input, args.output)
         console.print(res)
     elif args.command == "img-convert":
         res = convert_image(args.input, args.output, args.format, quality=args.quality)

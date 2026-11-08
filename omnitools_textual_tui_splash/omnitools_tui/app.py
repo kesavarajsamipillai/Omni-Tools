@@ -50,6 +50,7 @@ class OmniToolsTUI(App[None]):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("c", "clear_log", "Clear"),
+        Binding("b", "browse", "Browse", show=True),
         Binding("tab", "focus_next", "Focus", show=True),
         Binding("f5", "run_tool", "Run", priority=True),
         *[Binding(str(i), f"tab({i - 1})", "Tabs" if i == 1 else "", show=i == 1)
@@ -83,7 +84,7 @@ class OmniToolsTUI(App[None]):
 
     def on_mount(self) -> None:
         self.log_panel.write("SYS", "OmniTools ready. 100% Offline mode.")
-        self.log_panel.write("INFO", "Select a tool, paste paths, and press [b]F5[/] to run.")
+        self.log_panel.write("INFO", "Select a tool, browse paths ([b]B[/] or buttons), and press [b]F5[/] to run.")
         if self.show_splash:
             self.push_screen(StartupSplash(self.brand_name, self.github_id))
 
@@ -109,11 +110,17 @@ class OmniToolsTUI(App[None]):
         return isinstance(self.focused, (Input, TextArea))
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
-        if action in ("quit", "clear_log", "tab") and self._typing():
+        if action in ("quit", "clear_log", "tab", "browse") and self._typing():
             return False
         return True
 
     # ---- actions -----------------------------------------------------
+    def action_browse(self) -> None:
+        if self.tool_panel.tool and self.tool_panel.tool.input_mode == "folder":
+            self.tool_panel.open_windows_folder_dialog()
+        else:
+            self.tool_panel.open_windows_file_dialog()
+
     def action_clear_log(self) -> None:
         self.log_panel.clear()
 
@@ -154,10 +161,6 @@ class OmniToolsTUI(App[None]):
             p = Path(raw).expanduser()
             if not p.exists():
                 raise ValueError(f"Input path does not exist: {p}")
-            if tool.input_mode == "folder" and not p.is_dir():
-                raise ValueError(f"Expected a folder, got: {p}")
-            if tool.input_mode == "files" and not p.is_file():
-                raise ValueError(f"Expected a file, got: {p}")
             paths.append(p)
 
         if tool.needs_input and not paths:

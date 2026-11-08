@@ -39,6 +39,8 @@ Direct CLI Commands:
   python cli.py pdf-merge -i doc1.pdf doc2.pdf -o merged.pdf
   python cli.py pdf2docx -i doc.pdf -o doc.docx
   python cli.py docx2pdf -i doc.docx -o doc.pdf
+  python cli.py ppt2pdf -i slides.pptx -o slides.pdf
+  python cli.py pdf2ppt -i doc.pdf -o slides.pptx
   python cli.py img-convert -i img.png -f jpg -o img.jpg
   python cli.py img-batch -i ./images -f webp -o ./out
   python cli.py audio-convert -i song.wav -f mp3 -o song.mp3
@@ -52,6 +54,7 @@ Direct CLI Commands:
     # Check for direct CLI subcommands
     if unknown and unknown[0] in [
         "pdf-unlock", "pdf-lock", "pdf-merge", "pdf2docx", "docx2pdf",
+        "ppt2pdf", "pptx2pdf", "pdf2ppt", "pdf2pptx",
         "img-convert", "img-batch", "audio-convert", "video-audio",
         "sort-folder", "hash", "qr"
     ]:

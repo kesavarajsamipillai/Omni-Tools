@@ -65,7 +65,7 @@ Screen {
     margin: 0;
 }
 #left, #right {
-    width: 1fr;          /* exact 50/50, robust against odd column counts */
+    width: 1fr;          /* exact 50/50 split */
     height: 100%;
     background: #080C13;
 }
@@ -105,6 +105,7 @@ Screen {
     height: 1fr;
     padding: 0 2;
 }
+
 Select {
     width: 100%;
 }
@@ -120,6 +121,34 @@ Select > SelectOverlay {
     border: tall #00E5FF;
 }
 
+/* Browse Toolbar (50/50 split for Select Files & Select Folder) */
+.browse-bar {
+    height: 3;
+    width: 100%;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+.browse-bar .picker-btn {
+    width: 1fr;
+    height: 3;
+    background: #111827;
+    color: #00E5FF;
+    border: tall #1E293B;
+    text-style: bold;
+}
+.browse-bar #btn-browse-files {
+    margin-right: 1;
+}
+.browse-bar .picker-btn:hover {
+    background: #1E293B;
+    color: #00FF9D;
+    border: tall #00E5FF;
+}
+.browse-bar .picker-btn:focus {
+    background: #1E293B;
+    border: tall #00FF9D;
+}
+
 #paths {
     height: 5;
     min-height: 3;
@@ -128,37 +157,86 @@ Select > SelectOverlay {
 }
 #paths:focus { border: tall #00E5FF; }
 
-#output-dir {
+/* Output Folder Row */
+#output-row {
     height: 3;
     width: 100%;
+    margin-top: 1;
+    margin-bottom: 1;
+    align: left middle;
+}
+#output-row #output-dir {
+    width: 1fr;
+    height: 3;
     background: #0F1623;
     border: tall #1E293B;
-    margin-bottom: 1;
+    margin: 0 1 0 0;
 }
-#output-dir:focus { border: tall #00E5FF; }
+#output-row #output-dir:focus { border: tall #00E5FF; }
+#output-row .picker-btn {
+    height: 3;
+    min-width: 18;
+    background: #111827;
+    color: #00E5FF;
+    border: tall #1E293B;
+    text-style: bold;
+}
+#output-row .picker-btn:hover {
+    background: #1E293B;
+    color: #00FF9D;
+    border: tall #00E5FF;
+}
+#output-row .picker-btn:focus {
+    background: #1E293B;
+    border: tall #00FF9D;
+}
 
+/* ---------------- Options Section ---------------- */
 #options {
     height: auto;
     padding-bottom: 1;
 }
-.opt-row {
-    height: 3;
+
+.opt-field-title {
+    color: #00E5FF;
+    text-style: bold;
+    height: 1;
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+.opt-control {
     width: 100%;
+    margin-top: 0;
+    margin-bottom: 1;
 }
-.opt-row Label {
+Input.opt-control {
     height: 3;
-    content-align: left middle;
-    padding: 0 1;
-    color: #CBD5E1;
-}
-.opt-label { width: 18; }
-.opt-row Input, .opt-row Select {
-    width: 1fr;
     background: #0F1623;
     border: tall #1E293B;
 }
-.opt-row Input:focus, .opt-row Select:focus { border: tall #00E5FF; }
-.opt-empty { color: #475569; padding: 1 0; }
+Input.opt-control:focus {
+    border: tall #00E5FF;
+}
+
+.opt-toggle-row {
+    height: 3;
+    width: 100%;
+    align: left middle;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+.opt-toggle-label {
+    height: 3;
+    content-align: left middle;
+    padding-left: 1;
+    color: #CBD5E1;
+    text-style: bold;
+}
+.opt-empty {
+    color: #475569;
+    padding: 1 0;
+}
 
 Switch {
     background: #0F1623;

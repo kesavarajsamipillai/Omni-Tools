@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Protocol
+from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol
 
 
 class ProgressReporter(Protocol):
@@ -26,23 +26,61 @@ def _get_out_dir(req, default_dir: Path | None = None) -> Path:
     return Path.cwd()
 
 
+def _expand_files(
+    paths: Any,
+    allowed_extensions: Optional[Iterable[str]] = None,
+    recursive: bool = False
+) -> List[Path]:
+    """
+    Expands a collection of file and folder paths into a list of file paths.
+    If a path is a directory, it scans for matching files inside it.
+    If allowed_extensions is specified, only files with matching extensions are included.
+    """
+    ext_set = {e.lower().lstrip(".") for e in allowed_extensions} if allowed_extensions else None
+    expanded: List[Path] = []
+    seen = set()
+
+    for p in paths:
+        path_obj = Path(p)
+        if path_obj.is_dir():
+            iterator = path_obj.rglob("*") if recursive else path_obj.iterdir()
+            for child in sorted(iterator):
+                if child.is_file() and not child.name.startswith("."):
+                    if ext_set is None or child.suffix.lower().lstrip(".") in ext_set:
+                        if child not in seen:
+                            seen.add(child)
+                            expanded.append(child)
+        elif path_obj.is_file():
+            if ext_set is None or path_obj.suffix.lower().lstrip(".") in ext_set:
+                if path_obj not in seen:
+                    seen.add(path_obj)
+                    expanded.append(path_obj)
+    return expanded
+
+
 # =========================================================================
 # PDF HANDLERS
 # =========================================================================
 
 def handle_pdf_unlock(req, reporter: ProgressReporter) -> str:
     import modules.pdf_tools as pdf_tools
+    files = _expand_files(req.files, ["pdf"])
+    if not files:
+        raise RuntimeError("No PDF files found in the selected path(s).")
     pwd = str(req.options.get("password", "") or "")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
-    total = len(req.files)
+    total = len(files)
     successes = 0
 
-    for i, path in enumerate(req.files, 1):
+    for i, path in enumerate(files, 1):
         reporter.report((i - 1) / total * 100, f"Unlocking {path.name}...")
         out_path = out_dir / f"{path.stem}_unlocked{path.suffix}"
         res = pdf_tools.remove_pdf_password(str(path), str(out_path), password=pwd)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink()
         successes += 1
 
     reporter.report(100, "PDFs unlocked successfully.")
@@ -54,16 +92,22 @@ def handle_pdf_protect(req, reporter: ProgressReporter) -> str:
     pwd = str(req.options.get("password", "") or "")
     if not pwd:
         raise ValueError("Password cannot be empty.")
+    files = _expand_files(req.files, ["pdf"])
+    if not files:
+        raise RuntimeError("No PDF files found in the selected path(s).")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
-    total = len(req.files)
+    total = len(files)
     successes = 0
 
-    for i, path in enumerate(req.files, 1):
+    for i, path in enumerate(files, 1):
         reporter.report((i - 1) / total * 100, f"Protecting {path.name}...")
         out_path = out_dir / f"{path.stem}_protected{path.suffix}"
         res = pdf_tools.set_pdf_password(str(path), str(out_path), user_pwd=pwd)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink()
         successes += 1
 
     reporter.report(100, "PDFs encrypted successfully.")
@@ -72,8 +116,9 @@ def handle_pdf_protect(req, reporter: ProgressReporter) -> str:
 
 def handle_pdf_merge(req, reporter: ProgressReporter) -> str:
     import modules.pdf_tools as pdf_tools
-    if len(req.files) < 2:
-        raise ValueError("Please select at least 2 PDF files to merge.")
+    files = _expand_files(req.files, ["pdf"])
+    if len(files) < 2:
+        raise ValueError(f"Please select at least 2 PDF files to merge (found {len(files)}).")
     out_name = str(req.options.get("output_name") or "merged.pdf").strip()
     if not out_name.lower().endswith(".pdf"):
         out_name += ".pdf"
@@ -81,24 +126,27 @@ def handle_pdf_merge(req, reporter: ProgressReporter) -> str:
     out_dir = _get_out_dir(req)
     out_path = out_dir / out_name
 
-    reporter.report(30, f"Merging {len(req.files)} PDF files...")
-    input_strs = [str(f) for f in req.files]
+    reporter.report(30, f"Merging {len(files)} PDF files...")
+    input_strs = [str(f) for f in files]
     res = pdf_tools.merge_pdfs(input_strs, str(out_path))
     if not res["success"]:
         raise RuntimeError(res.get("error", "PDF merge failed"))
 
     reporter.report(100, "PDFs merged successfully.")
-    return f"Merged {len(req.files)} PDFs into {out_path.name} ({res.get('pages', 0)} pages)."
+    return f"Merged {len(files)} PDFs into {out_path.name} ({res.get('pages', 0)} pages)."
 
 
 def handle_pdf_split(req, reporter: ProgressReporter) -> str:
     import modules.pdf_tools as pdf_tools
+    files = _expand_files(req.files, ["pdf"])
+    if not files:
+        raise RuntimeError("No PDF files found in the selected path(s).")
     pages_spec = str(req.options.get("pages") or "").strip()
     out_dir = _get_out_dir(req)
-    total = len(req.files)
+    total = len(files)
     created_total = 0
 
-    for i, path in enumerate(req.files, 1):
+    for i, path in enumerate(files, 1):
         reporter.report((i - 1) / total * 100, f"Splitting {path.name}...")
         res = pdf_tools.split_pdf(str(path), str(out_dir), page_range_str=pages_spec or None)
         if not res["success"]:
@@ -111,18 +159,24 @@ def handle_pdf_split(req, reporter: ProgressReporter) -> str:
 
 def handle_pdf_to_images(req, reporter: ProgressReporter) -> str:
     import modules.pdf_tools as pdf_tools
+    files = _expand_files(req.files, ["pdf"])
+    if not files:
+        raise RuntimeError("No PDF files found in the selected path(s).")
     fmt = str(req.options.get("format") or "PNG").lower()
     dpi = int(req.options.get("dpi") or 150)
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     total_imgs = 0
 
-    for i, path in enumerate(req.files, 1):
+    for i, path in enumerate(files, 1):
         sub_folder = out_dir / f"{path.stem}_images"
-        reporter.report((i - 1) / len(req.files) * 100, f"Rendering {path.name}...")
+        reporter.report((i - 1) / len(files) * 100, f"Rendering {path.name}...")
         res = pdf_tools.pdf_to_images(str(path), str(sub_folder), fmt=fmt, dpi=dpi)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
         total_imgs += res.get("count", 0)
+        if not keep_originals and sub_folder.exists():
+            path.unlink()
 
     reporter.report(100, "Rendered all pages to images.")
     return f"Rendered {total_imgs} page image(s) into {out_dir}"
@@ -130,19 +184,26 @@ def handle_pdf_to_images(req, reporter: ProgressReporter) -> str:
 
 def handle_pdf_images_to_pdf(req, reporter: ProgressReporter) -> str:
     import modules.pdf_tools as pdf_tools
-    if not req.files:
-        raise ValueError("Please select one or more image files.")
+    files = _expand_files(req.files, ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif"])
+    if not files:
+        raise ValueError("Please select one or more image files or a folder containing images.")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     out_path = out_dir / "combined_images.pdf"
 
-    reporter.report(40, f"Combining {len(req.files)} image(s) to PDF...")
-    input_strs = [str(f) for f in req.files]
+    reporter.report(40, f"Combining {len(files)} image(s) to PDF...")
+    input_strs = [str(f) for f in files]
     res = pdf_tools.images_to_pdf(input_strs, str(out_path))
     if not res["success"]:
         raise RuntimeError(res.get("error", "Images to PDF conversion failed"))
 
+    if not keep_originals and out_path.exists():
+        for f in files:
+            if f.resolve() != out_path.resolve():
+                f.unlink(missing_ok=True)
+
     reporter.report(100, "PDF created successfully.")
-    return f"Combined {len(req.files)} image(s) into {out_path.name}"
+    return f"Combined {len(files)} image(s) into {out_path.name}"
 
 
 # =========================================================================
@@ -151,16 +212,22 @@ def handle_pdf_images_to_pdf(req, reporter: ProgressReporter) -> str:
 
 def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
+    files = _expand_files(req.files, ["pdf"])
+    if not files:
+        raise RuntimeError("No PDF files found in the selected path(s).")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
-    total = len(req.files)
+    total = len(files)
     count = 0
 
-    for i, path in enumerate(req.files, 1):
+    for i, path in enumerate(files, 1):
         reporter.report((i - 1) / total * 100, f"Converting {path.name} to DOCX...")
         out_path = out_dir / f"{path.stem}.docx"
         res = doc_tools.pdf_to_docx(str(path), str(out_path))
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Converted to DOCX.")
@@ -169,34 +236,94 @@ def handle_doc_pdf_to_docx(req, reporter: ProgressReporter) -> str:
 
 def handle_doc_docx_to_pdf(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
+    files = _expand_files(req.files, ["docx", "doc"])
+    if not files:
+        raise RuntimeError("No Word document (.docx/.doc) files found in the selected path(s).")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
-    total = len(req.files)
+    total = len(files)
     count = 0
 
-    for i, path in enumerate(req.files, 1):
+    for i, path in enumerate(files, 1):
         reporter.report((i - 1) / total * 100, f"Converting {path.name} to PDF...")
         out_path = out_dir / f"{path.stem}.pdf"
         res = doc_tools.docx_to_pdf(str(path), str(out_path))
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Converted to PDF.")
     return f"Converted {count} Word DOCX document(s) to PDF."
 
 
+def handle_doc_pptx_to_pdf(req, reporter: ProgressReporter) -> str:
+    import modules.doc_tools as doc_tools
+    files = _expand_files(req.files, ["pptx", "ppt"])
+    if not files:
+        raise RuntimeError("No PowerPoint presentation (.pptx/.ppt) files found in the selected path(s).")
+    keep_originals = bool(req.options.get("keep_originals", True))
+    out_dir = _get_out_dir(req)
+    total = len(files)
+    count = 0
+
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Converting {path.name} to PDF...")
+        out_path = out_dir / f"{path.stem}.pdf"
+        res = doc_tools.pptx_to_pdf(str(path), str(out_path))
+        if not res["success"]:
+            raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
+        count += 1
+
+    reporter.report(100, "Presentation converted to PDF.")
+    return f"Converted {count} PowerPoint presentation(s) to PDF."
+
+
+def handle_doc_pdf_to_pptx(req, reporter: ProgressReporter) -> str:
+    import modules.doc_tools as doc_tools
+    files = _expand_files(req.files, ["pdf"])
+    if not files:
+        raise RuntimeError("No PDF files found in the selected path(s).")
+    keep_originals = bool(req.options.get("keep_originals", True))
+    out_dir = _get_out_dir(req)
+    total = len(files)
+    count = 0
+
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Converting {path.name} to PowerPoint PPTX...")
+        out_path = out_dir / f"{path.stem}.pptx"
+        res = doc_tools.pdf_to_pptx(str(path), str(out_path))
+        if not res["success"]:
+            raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
+        count += 1
+
+    reporter.report(100, "Converted PDF to PowerPoint PPTX.")
+    return f"Converted {count} PDF document(s) to PowerPoint presentation slides."
+
+
 def handle_doc_txt_to_pdf(req, reporter: ProgressReporter) -> str:
     import modules.doc_tools as doc_tools
+    files = _expand_files(req.files, ["txt"])
+    if not files:
+        raise RuntimeError("No TXT files found in the selected path(s).")
     font_size = int(req.options.get("font_size") or 11)
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Formatting {path.name} as PDF...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / len(files) * 100, f"Formatting {path.name} as PDF...")
         out_path = out_dir / f"{path.stem}.pdf"
         res = doc_tools.text_to_pdf(str(path), str(out_path), font_size=font_size)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Text formatted as PDF.")
@@ -209,17 +336,24 @@ def handle_doc_txt_to_pdf(req, reporter: ProgressReporter) -> str:
 
 def handle_image_convert(req, reporter: ProgressReporter) -> str:
     import modules.image_tools as image_tools
+    files = _expand_files(req.files, ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "ico"])
+    if not files:
+        raise RuntimeError("No supported image files found in the selected path(s).")
     target_fmt = str(req.options.get("format") or "WEBP").lower()
-    ext_out = "jpg" if target_fmt in ("jpg", "jpeg") else target_fmt
+    ext_out = "jpeg" if target_fmt == "jpeg" else ("jpg" if target_fmt == "jpg" else target_fmt)
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
+    total = len(files)
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Converting {path.name} -> {target_fmt.upper()}...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Converting {path.name} -> {target_fmt.upper()}...")
         out_path = out_dir / f"{path.stem}.{ext_out}"
         res = image_tools.convert_image(str(path), str(out_path), target_format=target_fmt)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Image conversion complete.")
@@ -228,23 +362,24 @@ def handle_image_convert(req, reporter: ProgressReporter) -> str:
 
 def handle_image_batch_convert(req, reporter: ProgressReporter) -> str:
     import modules.image_tools as image_tools
+    files = _expand_files(req.files, ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "ico"])
+    if not files:
+        raise RuntimeError("No supported image files found in the selected path(s).")
     target_fmt = str(req.options.get("format") or "WEBP").lower()
+    ext_out = "jpeg" if target_fmt == "jpeg" else ("jpg" if target_fmt == "jpg" else target_fmt)
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     total_converted = 0
+    total = len(files)
 
-    for path in req.files:
-        if path.is_dir():
-            target_sub = out_dir / f"{path.name}_{target_fmt}"
-            reporter.report(40, f"Batch converting directory {path.name}...")
-            res = image_tools.batch_convert_images(str(path), str(target_sub), target_format=target_fmt)
-            if not res["success"]:
-                raise RuntimeError(res.get("error"))
-            total_converted += len(res.get("converted", []))
-        else:
-            ext_out = "jpg" if target_fmt in ("jpg", "jpeg") else target_fmt
-            res = image_tools.convert_image(str(path), str(out_dir / f"{path.stem}.{ext_out}"), target_format=target_fmt)
-            if res["success"]:
-                total_converted += 1
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Batch converting {path.name} -> {target_fmt.upper()}...")
+        out_file = out_dir / f"{path.stem}.{ext_out}"
+        res = image_tools.convert_image(str(path), str(out_file), target_format=target_fmt)
+        if res["success"]:
+            total_converted += 1
+            if not keep_originals and out_file.exists() and out_file.resolve() != path.resolve():
+                path.unlink(missing_ok=True)
 
     reporter.report(100, "Batch conversion complete.")
     return f"Batch converted {total_converted} images to {target_fmt.upper()}."
@@ -252,18 +387,25 @@ def handle_image_batch_convert(req, reporter: ProgressReporter) -> str:
 
 def handle_image_resize(req, reporter: ProgressReporter) -> str:
     import modules.image_tools as image_tools
+    files = _expand_files(req.files, ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "ico"])
+    if not files:
+        raise RuntimeError("No supported image files found in the selected path(s).")
     w = int(req.options.get("width") or 1200)
     h = int(req.options.get("height") or 800)
     keep_aspect = bool(req.options.get("keep_aspect", True))
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
+    total = len(files)
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Resizing {path.name}...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Resizing {path.name}...")
         out_path = out_dir / f"{path.stem}_resized{path.suffix}"
         res = image_tools.resize_image(str(path), str(out_path), width=w, height=h, keep_aspect=keep_aspect)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Resize complete.")
@@ -272,13 +414,18 @@ def handle_image_resize(req, reporter: ProgressReporter) -> str:
 
 def handle_image_compress(req, reporter: ProgressReporter) -> str:
     import modules.image_tools as image_tools
+    files = _expand_files(req.files, ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "ico"])
+    if not files:
+        raise RuntimeError("No supported image files found in the selected path(s).")
     quality = int(req.options.get("quality") or 82)
     fmt_choice = str(req.options.get("format") or "Keep original")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
+    total = len(files)
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Compressing {path.name}...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Compressing {path.name}...")
         ext = path.suffix
         if fmt_choice == "JPG":
             ext = ".jpg"
@@ -288,6 +435,8 @@ def handle_image_compress(req, reporter: ProgressReporter) -> str:
         res = image_tools.compress_image(str(path), str(out_path), quality=quality)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Compression complete.")
@@ -296,20 +445,28 @@ def handle_image_compress(req, reporter: ProgressReporter) -> str:
 
 def handle_image_transparency(req, reporter: ProgressReporter) -> str:
     import modules.image_tools as image_tools
+    files = _expand_files(req.files, ["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "ico"])
+    if not files:
+        raise RuntimeError("No supported image files found in the selected path(s).")
     hex_color = str(req.options.get("background") or "#FFFFFF").lstrip("#")
     if len(hex_color) == 6:
         r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     else:
         r, g, b = (255, 255, 255)
 
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Flattening {path.name} background...")
+    total = len(files)
+
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Flattening {path.name} background...")
         out_path = out_dir / f"{path.stem}_flat.jpg"
         res = image_tools.convert_image(str(path), str(out_path), target_format="jpeg", bg_color=(r, g, b))
         if not res["success"]:
             raise RuntimeError(res.get("error"))
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Transparency flattened.")
@@ -325,38 +482,56 @@ def handle_media_convert(req, reporter: ProgressReporter) -> str:
     target_fmt = str(req.options.get("format") or "MP3").lower()
     bitrate_raw = str(req.options.get("bitrate") or "192 kbps")
     bitrate = bitrate_raw.split()[0] + "k"
+    keep_tags = bool(req.options.get("keep_tags", True))
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
-    count = 0
 
-    for i, path in enumerate(req.files, 1):
-        if path.is_dir():
-            res = audio_tools.batch_convert_audio(str(path), str(out_dir), target_format=target_fmt, bitrate=bitrate)
-            if not res["success"]:
-                raise RuntimeError(res.get("error"))
-            count += len(res.get("converted", []))
-        else:
-            reporter.report((i - 1) / len(req.files) * 100, f"Converting {path.name} -> {target_fmt.upper()}...")
-            out_path = out_dir / f"{path.stem}.{target_fmt}"
-            res = audio_tools.convert_audio(str(path), str(out_path), target_format=target_fmt, bitrate=bitrate)
-            if not res["success"]:
-                raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
-            count += 1
+    # Expand any folders or file selections into individual media files
+    media_exts = audio_tools.SUPPORTED_AUDIO_FORMATS + [v.lstrip(".") for v in audio_tools.SUPPORTED_VIDEO_FORMATS]
+    files = _expand_files(req.files, media_exts)
+    if not files:
+        raise RuntimeError("No supported audio or video files found in the selected path(s).")
+
+    count = 0
+    total = len(files)
+
+    for i, path in enumerate(files, 1):
+        detection = audio_tools.detect_media_type(str(path))
+        detected_fmt = (detection.get("format") or path.suffix.lstrip(".")).upper()
+        tag_info = f" (\"{detection['title']}\")" if detection.get("title") else ""
+        cover_info = " + cover art" if detection.get("has_cover") else ""
+        reporter.report((i - 1) / total * 100, f"[{i}/{total}] [Auto-detect: {detected_fmt} -> {target_fmt.upper()}] Converting {path.name}{tag_info}{cover_info}...")
+        out_path = out_dir / f"{path.stem}.{target_fmt}"
+        res = audio_tools.convert_audio(str(path), str(out_path), target_format=target_fmt, bitrate=bitrate, keep_tags=keep_tags)
+        if not res["success"]:
+            raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
+        count += 1
 
     reporter.report(100, "Audio conversion complete.")
-    return f"Converted {count} audio track(s) to {target_fmt.upper()} ({bitrate})."
+    tags_status = "with song details & cover art preserved" if keep_tags else "transcoded"
+    return f"Successfully converted {count} audio track(s) to {target_fmt.upper()} ({bitrate}) {tags_status}."
 
 
 def handle_media_extract_audio(req, reporter: ProgressReporter) -> str:
     import modules.audio_tools as audio_tools
+    files = _expand_files(req.files, [v.lstrip(".") for v in audio_tools.SUPPORTED_VIDEO_FORMATS])
+    if not files:
+        raise RuntimeError("No video files found in the selected path(s).")
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
+    total = len(files)
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Extracting audio from {path.name}...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Extracting audio from {path.name}...")
         out_path = out_dir / f"{path.stem}.mp3"
         res = audio_tools.extract_audio_from_video(str(path), str(out_path), target_format="mp3")
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Audio extraction complete.")
@@ -365,17 +540,24 @@ def handle_media_extract_audio(req, reporter: ProgressReporter) -> str:
 
 def handle_media_trim(req, reporter: ProgressReporter) -> str:
     import modules.audio_tools as audio_tools
+    files = _expand_files(req.files, audio_tools.SUPPORTED_AUDIO_FORMATS)
+    if not files:
+        raise RuntimeError("No audio files found in the selected path(s).")
     start_t = str(req.options.get("start") or "00:00:00").strip()
     end_t = str(req.options.get("end") or "00:00:30").strip()
+    keep_originals = bool(req.options.get("keep_originals", True))
     out_dir = _get_out_dir(req)
     count = 0
+    total = len(files)
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Trimming {path.name}...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Trimming {path.name}...")
         out_path = out_dir / f"{path.stem}_trimmed{path.suffix}"
         res = audio_tools.trim_audio(str(path), str(out_path), start_time=start_t, duration_or_end=end_t, is_duration=False)
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+        if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
+            path.unlink(missing_ok=True)
         count += 1
 
     reporter.report(100, "Audio trimmed.")
@@ -414,11 +596,15 @@ def handle_sorter_organize(req, reporter: ProgressReporter) -> str:
 
 def handle_utilities_hash(req, reporter: ProgressReporter) -> str:
     import modules.extra_tools as extra_tools
+    files = _expand_files(req.files, None)
+    if not files:
+        raise RuntimeError("No files found in the selected path(s).")
     algo = str(req.options.get("algorithm") or "SHA-256").lower().replace("-", "")
     lines = []
+    total = len(files)
 
-    for i, path in enumerate(req.files, 1):
-        reporter.report((i - 1) / len(req.files) * 100, f"Calculating {algo.upper()} for {path.name}...")
+    for i, path in enumerate(files, 1):
+        reporter.report((i - 1) / total * 100, f"Calculating {algo.upper()} for {path.name}...")
         res = extra_tools.calculate_file_hash(str(path), algorithm=algo)
         if not res["success"]:
             raise RuntimeError(f"{path.name}: {res.get('error')}")
@@ -511,6 +697,8 @@ HANDLERS: Dict[str, Callable] = {
     # Documents
     "documents.pdf_to_docx": handle_doc_pdf_to_docx,
     "documents.docx_to_pdf": handle_doc_docx_to_pdf,
+    "documents.pptx_to_pdf": handle_doc_pptx_to_pdf,
+    "documents.pdf_to_pptx": handle_doc_pdf_to_pptx,
     "documents.txt_to_pdf": handle_doc_txt_to_pdf,
 
     # Images

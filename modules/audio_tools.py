@@ -620,20 +620,13 @@ def convert_audio(
     # 1. Pre-extract song metadata and album cover if enabled
     metadata = extract_audio_metadata(input_file) if keep_tags else {}
 
-    # Check if input is already target format and paths are identical
-    if os.path.abspath(input_file) == os.path.abspath(output_file):
-        if keep_tags:
-            inject_audio_metadata(output_file, metadata)
-        return {
-            "success": True,
-            "output": output_file,
-            "format": target_format,
-            "detected_format": detected_format,
-            "title": metadata.get("title"),
-            "artist": metadata.get("artist"),
-            "album": metadata.get("album"),
-            "has_cover": bool(metadata.get("picture_data")),
-        }
+    # If input and output are the same file, transcode to a temporary file first
+    is_same_file = os.path.abspath(input_file) == os.path.abspath(output_file)
+    temp_dir = None
+    target_dest = output_file
+    if is_same_file:
+        temp_dir = tempfile.mkdtemp()
+        target_dest = os.path.join(temp_dir, f"transcode_{os.path.basename(output_file)}")
 
     # 2. Transcode audio track cleanly using FFmpeg
     cmd = [
@@ -645,32 +638,53 @@ def convert_audio(
 
     # Specific format codec mapping for best fidelity & compatibility
     if target_format == "mp3":
-        cmd.extend(["-c:a", "libmp3lame", "-b:a", bitrate])
+        cmd.extend(["-c:a", "libmp3lame"])
+        if bitrate:
+            cmd.extend(["-b:a", bitrate])
     elif target_format == "aac":
-        cmd.extend(["-c:a", "aac", "-b:a", bitrate])
+        cmd.extend(["-c:a", "aac"])
+        if bitrate:
+            cmd.extend(["-b:a", bitrate])
     elif target_format == "ogg":
-        cmd.extend(["-c:a", "libvorbis", "-q:a", "5"])
+        cmd.extend(["-c:a", "libvorbis"])
+        if bitrate:
+            cmd.extend(["-b:a", bitrate])
+        else:
+            cmd.extend(["-q:a", "5"])
     elif target_format == "flac":
         cmd.extend(["-c:a", "flac"])
     elif target_format == "wav":
         cmd.extend(["-c:a", "pcm_s16le"])
     elif target_format == "opus":
-        cmd.extend(["-c:a", "libopus", "-b:a", bitrate])
+        cmd.extend(["-c:a", "libopus"])
+        if bitrate:
+            cmd.extend(["-b:a", bitrate])
     elif target_format == "m4a":
-        cmd.extend(["-c:a", "aac", "-b:a", bitrate])
+        cmd.extend(["-c:a", "aac"])
+        if bitrate:
+            cmd.extend(["-b:a", bitrate])
     else:
-        cmd.extend(["-b:a", bitrate])
+        if bitrate:
+            cmd.extend(["-b:a", bitrate])
 
-    cmd.append(output_file)
+    cmd.append(target_dest)
 
     try:
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode != 0:
+            if temp_dir and os.path.isdir(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
             return {"success": False, "error": f"FFmpeg error: {proc.stderr[-300:]}"}
 
         # 3. Inject full metadata and album cover art into output file
         if keep_tags:
-            inject_audio_metadata(output_file, metadata)
+            inject_audio_metadata(target_dest, metadata)
+
+        # 4. If in-place transcode, replace the original file
+        if is_same_file:
+            shutil.move(target_dest, output_file)
+            if temp_dir and os.path.isdir(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
         return {
             "success": True,
@@ -683,6 +697,8 @@ def convert_audio(
             "has_cover": bool(metadata.get("picture_data")),
         }
     except Exception as e:
+        if temp_dir and os.path.isdir(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
         return {"success": False, "error": str(e)}
 
 

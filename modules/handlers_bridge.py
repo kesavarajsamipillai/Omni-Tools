@@ -553,8 +553,13 @@ def handle_image_transparency(req, reporter: ProgressReporter) -> str:
 
 def handle_media_convert(req, reporter: ProgressReporter) -> str:
     import modules.audio_tools as audio_tools
-    target_fmt = str(req.options.get("format") or "MP3").lower()
-    bitrate_raw = str(req.options.get("bitrate") or "192 kbps")
+    change_format = bool(req.options.get("change_format", True))
+    fmt_choice = str(req.options.get("format") or "MP3")
+    if fmt_choice.lower() in ("keep original format", "keep original", "source"):
+        change_format = False
+
+    change_bitrate = bool(req.options.get("change_bitrate", True))
+    bitrate_raw = str(req.options.get("bitrate") or "320 kbps")
     bitrate = bitrate_raw.split()[0] + "k"
     keep_tags = bool(req.options.get("keep_tags", True))
     keep_originals = bool(req.options.get("keep_originals", True))
@@ -567,28 +572,81 @@ def handle_media_convert(req, reporter: ProgressReporter) -> str:
         raise RuntimeError("No supported audio or video files found in the selected path(s).")
 
     count = 0
+    skipped = 0
     total = len(files)
 
     for i, path in enumerate(files, 1):
         detection = audio_tools.detect_media_type(str(path))
-        detected_fmt = (detection.get("format") or path.suffix.lstrip(".")).upper()
-        if _normalize_fmt(detected_fmt) == _normalize_fmt(target_fmt):
-            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already {target_fmt.upper()}. Skipping...")
+        src_fmt = (detection.get("format") or path.suffix.lstrip(".")).lower()
+
+        # Determine effective target format
+        if change_format and fmt_choice.lower() not in ("keep original format", "keep original"):
+            target_fmt = fmt_choice.lower().lstrip(".")
+        else:
+            target_fmt = src_fmt
+
+        same_format = (_normalize_fmt(src_fmt) == _normalize_fmt(target_fmt))
+
+        # Check skip condition:
+        # If format is NOT changing AND bitrate is NOT changing -> skip!
+        if same_format and not change_bitrate:
+            reporter.report((i - 1) / total * 100, f"[SKIP] {path.name} is already {target_fmt.upper()} (bitrate change not enabled). Skipping...")
+            skipped += 1
             continue
+
         tag_info = f" (\"{detection['title']}\")" if detection.get("title") else ""
         cover_info = " + cover art" if detection.get("has_cover") else ""
-        reporter.report((i - 1) / total * 100, f"[{i}/{total}] [Auto-detect: {detected_fmt} -> {target_fmt.upper()}] Converting {path.name}{tag_info}{cover_info}...")
-        out_path = out_dir / f"{path.stem}.{target_fmt}"
-        res = audio_tools.convert_audio(str(path), str(out_path), target_format=target_fmt, bitrate=bitrate, keep_tags=keep_tags)
+        action_desc = f"{src_fmt.upper()} -> {target_fmt.upper()}"
+        if change_bitrate:
+            action_desc += f" ({bitrate})"
+
+        reporter.report((i - 1) / total * 100, f"[{i}/{total}] [Auto-detect: {action_desc}] Processing {path.name}{tag_info}{cover_info}...")
+
+        # Destination path determination:
+        # If outputting to the same folder and same format:
+        #   If keep_originals is True: use a suffix to preserve original file
+        #   If keep_originals is False: replace original file in-place!
+        is_same_dir = (out_dir.resolve() == path.parent.resolve())
+        if is_same_dir and same_format:
+            if keep_originals:
+                bitrate_tag = f"_{bitrate}" if change_bitrate else "_converted"
+                out_path = out_dir / f"{path.stem}{bitrate_tag}.{target_fmt}"
+            else:
+                out_path = path
+        else:
+            out_path = out_dir / f"{path.stem}.{target_fmt}"
+
+        res = audio_tools.convert_audio(
+            str(path),
+            str(out_path),
+            target_format=target_fmt,
+            bitrate=bitrate if change_bitrate else "",
+            keep_tags=keep_tags
+        )
         if not res["success"]:
             raise RuntimeError(f"Failed on {path.name}: {res.get('error')}")
+
+        # If user selected NOT to keep originals and output was written to a distinct path, remove source
         if not keep_originals and out_path.exists() and out_path.resolve() != path.resolve():
-            path.unlink(missing_ok=True)
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                import gc, time
+                gc.collect()
+                time.sleep(0.1)
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
         count += 1
 
-    reporter.report(100, "Audio conversion complete.")
+    reporter.report(100, "Audio processing complete.")
     tags_status = "with song details & cover art preserved" if keep_tags else "transcoded"
-    return f"Successfully converted {count} audio track(s) to {target_fmt.upper()} ({bitrate}) {tags_status}."
+    msg = f"Successfully processed {count} audio track(s) {tags_status}."
+    if skipped:
+        msg += f" (Skipped {skipped} tracks where no conversion or bitrate change was requested)"
+    return msg
 
 
 def handle_media_extract_audio(req, reporter: ProgressReporter) -> str:
